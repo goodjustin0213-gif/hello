@@ -1,6 +1,5 @@
 // =========================================================
 // MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
-// 單位：新台幣 (元) / 月
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
     'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
@@ -22,11 +21,17 @@ function formatCurrency(number) {
     return `NT$ ${Math.round(number).toLocaleString('zh-TW')}`;
 }
 
-function calculateMonthlySalary(rankCode, year) {
+/**
+ * 根據階級、年資、及額外津貼計算當前月薪總額
+ */
+function calculateMonthlySalary(rankCode, year, extraAdd, specialAdd) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
     if (!data) return 0;
     
-    let monthlyTotal = data.base + data.pro_add + data.food_add;
+    // 基礎月薪 = 本俸 + 專業加給 + 伙食津貼 + 額外加給 + 特殊津貼
+    let monthlyTotal = data.base + data.pro_add + data.food_add + extraAdd + specialAdd;
+    
+    // 考慮年度基礎成長
     monthlyTotal *= (1 + data.annual_growth) ** (year - 1);
     
     return Math.round(monthlyTotal);
@@ -161,6 +166,10 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
+    // 獲取額外津貼的數值
+    const extraProAdd = parseInt(document.getElementById('extraProAdd').value) || 0;
+    const specialAllowance = parseInt(document.getElementById('specialAllowance').value) || 0;
+    
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
         document.getElementById('simulation-status').innerText = '請確認服役年數與支出輸入正確。';
         document.getElementById('simulation-status').classList.remove('hidden');
@@ -196,7 +205,8 @@ function runSimulation() {
             }
         }
         
-        let monthlySalary = calculateMonthlySalary(currentRank, year);
+        // 獲取當前月薪 (傳入額外加給和津貼數值)
+        let monthlySalary = calculateMonthlySalary(currentRank, year, extraProAdd, specialAllowance);
         monthlySalaryData.push(monthlySalary);
 
         // 財務計算
