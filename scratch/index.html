@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 - 穩定修復版</title>
+    <title>軍人職涯薪資規劃決策支援系統 - 最終版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -116,16 +116,16 @@
     <script>
         // =========================================================
         // MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
-        // 註：將級軍官的本俸和加給為高度模擬數據，需參考真實薪資表。
         // =========================================================
         const REAL_SALARY_STRUCTURE = {
+            // 尉/校級軍官
             'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
             'S3': { rank: '中尉', base: 28000, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
             'S4': { rank: '上尉', base: 31000, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
             'M1': { rank: '少校', base: 38000, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
             'M2': { rank: '中校', base: 45000, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
             'M3': { rank: '上校', base: 52000, pro_add: 65000, food_add: 2840, promotion_years: 5, annual_growth: 0.015 },
-            // --- 將級軍官新增區 ---
+            // 將級軍官 (模擬數據)
             'S5': { rank: '少將', base: 60000, pro_add: 75000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
             'S6': { rank: '中將', base: 70000, pro_add: 85000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
             'S7': { rank: '上將', base: 80000, pro_add: 95000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
@@ -412,6 +412,3 @@
             // 運行初始模擬
             runSimulation();
         });
-    </script>
-</body>
-</html>
