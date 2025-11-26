@@ -1,6 +1,5 @@
 // =========================================================
-// MOCK DATA: 國軍軍官薪資結構 (已包含將級軍官)
-// 註：請將本俸和專業加給替換為中華民國國軍薪資表的真實數據。
+// MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
     // 尉/校級軍官
@@ -60,6 +59,7 @@ function calculateCustomAllowanceTotal() {
     const allowanceInputs = document.querySelectorAll('.allowance-value');
     let total = 0;
     allowanceInputs.forEach(input => {
+        // 使用 parseInt(input.value) || 0 來確保即使輸入為空或無效，也能得到 0
         const value = parseInt(input.value) || 0; 
         total += value;
     });
@@ -165,7 +165,7 @@ function renderScenarioChart(years, baseSalaryData, livingCost, savingsRate) {
     
     const baseAsset = calcScenarioAsset(baseRate);
     const lowAsset = calcScenarioAsset(lowRate);
-    const highAsset = calcScenarioAsset(highAsset);
+    const highAsset = calcScenarioAsset(highRate);
 
     const ctx = document.getElementById('scenarioChart').getContext('2d');
     scenarioChartInstance = new Chart(ctx, {
@@ -217,7 +217,7 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 獲取所有自訂加給的總和
+    // 獲取所有自訂加給的總和 (已修復，確保計算不會出錯)
     const customAllowance = calculateCustomAllowanceTotal(); 
     
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
