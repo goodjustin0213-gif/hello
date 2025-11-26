@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 - 穩定版</title>
+    <title>軍人職涯薪資規劃決策支援系統 - 穩定版 (2026 加給版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -23,7 +23,7 @@
 <body>
     <header class="bg-indigo-800 text-white p-4 shadow-lg sticky top-0 z-10">
         <h1 class="text-2xl font-extrabold tracking-wide">🚀 軍人職涯財務決策支援系統</h1>
-        <p class="text-indigo-200 text-sm mt-1">模擬國軍薪資與資產累積，協助官校學生規劃未來。</p>
+        <p class="text-indigo-200 text-sm mt-1">模擬國軍薪資與資產累積 (已納入 2026 年志願役加給)。</p>
     </header>
 
     <main class="flex flex-col lg:flex-row min-h-screen">
@@ -48,20 +48,22 @@
             </div>
 
             <div class="mb-5 border-b pb-4">
-                <h3 class="font-semibold text-gray-700 mb-2">2. 專業加給與津貼選擇 (月額)</h3>
+                <h3 class="font-semibold text-gray-700 mb-2">2. 特殊勤務加給 (月額)</h3>
+                <p class="text-xs text-indigo-500 mb-2">註：已自動包含 2026 年志願役加給 30,000 元。</p>
                 
-                <label for="extraProAdd" class="block text-sm font-medium text-gray-600">額外專業加給 (如飛行、艦艇)</label>
-                <select id="extraProAdd" class="mt-1 block w-full border rounded-md py-2 px-3">
-                    <option value="0">無額外加給</option>
-                    <option value="15000">飛行加給 (約 15000 元)</option>
-                    <option value="10000">技術加給 (約 10000 元)</option>
+                <label for="dutyAllowance" class="block text-sm font-medium text-gray-600">勤務加給 / 危險性或技術性工作</label>
+                <select id="dutyAllowance" class="mt-1 block w-full border rounded-md py-2 px-3">
+                    <option value="0">無勤務加給</option>
+                    <option value="15000">特戰加給 (約 6,200~15,000 元)</option>
+                    <option value="20000">空勤加給 (約 4,500~22,100 元)</option>
+                    <option value="10000">海勤加給 (約 2,500~12,000 元)</option>
+                    <option value="6000">網路戰/飛彈修護加給 (約 5,000~6,200 元)</option>
                 </select>
 
-                <label for="specialAllowance" class="block text-sm font-medium text-gray-600 mt-3">特殊/勤務津貼 (如外島、偏遠地區)</label>
-                <select id="specialAllowance" class="mt-1 block w-full border rounded-md py-2 px-3">
-                    <option value="0">無特殊津貼</option>
-                    <option value="12000">外島地區加給 (約 12000 元)</option>
-                    <option value="8000">高山地區勤務加給 (約 8000 元)</option>
+                <label for="regionAllowance" class="block text-sm font-medium text-gray-600 mt-3">地域加給 (偏遠/特殊地區)</label>
+                <select id="regionAllowance" class="mt-1 block w-full border rounded-md py-2 px-3">
+                    <option value="0">無地域加給</option>
+                    <option value="10000">外島地區加給 (約 4,640~12,000 元)</option>
                 </select>
             </div>
 
@@ -118,6 +120,7 @@
     <script>
         // =========================================================
         // MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
+        // 註：這裏的 pro_add 視為「中將以下專業人員」的基本專業加給。
         // =========================================================
         const REAL_SALARY_STRUCTURE = {
             'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
@@ -129,9 +132,12 @@
         };
 
         const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
+        // 2026年起志願役人員固定加給
+        const VOLUNTEER_ADDITION_2026 = 30000; 
+
         let financialChartInstance;
         let scenarioChartInstance;
-        
+
         // --- 輔助函數 ---
 
         function formatCurrency(number) {
@@ -140,18 +146,21 @@
         }
 
         /**
-         * 根據階級和年資計算當前月薪總額
-         * @param {string} rankCode 階級代碼
-         * @param {number} year 當前服役年數
-         * @param {number} extraAdd - 額外專業加給 (從選單中獲取)
-         * @param {number} specialAdd - 特殊勤務津貼 (從選單中獲取)
+         * 根據階級、年資、及額外津貼計算當前月薪總額
+         * 薪資 = (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 勤務加給 + 地域加給) * 年資成長率
          */
-        function calculateMonthlySalary(rankCode, year, extraAdd, specialAdd) {
+        function calculateMonthlySalary(rankCode, year, dutyAdd, regionAdd) {
             const data = REAL_SALARY_STRUCTURE[rankCode];
             if (!data) return 0;
             
-            // 基礎月薪 = 本俸 + 專業加給 + 伙食津貼 + 額外加給 + 特殊津貼
-            let monthlyTotal = data.base + data.pro_add + data.food_add + extraAdd + specialAdd;
+            // 基礎月薪 (本俸 + 專業加給 + 伙食津貼)
+            let monthlyTotal = data.base + data.pro_add + data.food_add;
+            
+            // 加上 2026年起志願役加給 (NT$30,000)
+            monthlyTotal += VOLUNTEER_ADDITION_2026;
+            
+            // 加上使用者選擇的勤務加給和地域加給
+            monthlyTotal += dutyAdd + regionAdd;
             
             // 考慮年度基礎成長
             monthlyTotal *= (1 + data.annual_growth) ** (year - 1);
@@ -288,10 +297,10 @@
             const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
             const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
             
-            // 新增：獲取額外津貼的數值
-            const extraProAdd = parseInt(document.getElementById('extraProAdd').value) || 0;
-            const specialAllowance = parseInt(document.getElementById('specialAllowance').value) || 0;
-
+            // 獲取勤務和地域加給的數值
+            const dutyAllowance = parseInt(document.getElementById('dutyAllowance').value) || 0;
+            const regionAllowance = parseInt(document.getElementById('regionAllowance').value) || 0;
+            
             if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
                 document.getElementById('simulation-status').innerText = '請確認服役年數與支出輸入正確。';
                 document.getElementById('simulation-status').classList.remove('hidden');
@@ -314,7 +323,7 @@
             for (let year = 1; year <= serviceYears; year++) {
                 years.push(`第 ${year} 年`);
 
-                // 檢查晉升邏輯
+                // 檢查晉升邏輯：
                 const currentRankData = REAL_SALARY_STRUCTURE[currentRank];
                 const currentIndex = RANK_ORDER.indexOf(currentRank);
                 
@@ -327,8 +336,8 @@
                     }
                 }
                 
-                // 獲取當前月薪 (傳入額外加給和津貼數值)
-                let monthlySalary = calculateMonthlySalary(currentRank, year, extraProAdd, specialAllowance);
+                // 獲取當前月薪 (傳入勤務加給和地域加給數值)
+                let monthlySalary = calculateMonthlySalary(currentRank, year, dutyAllowance, regionAllowance);
                 monthlySalaryData.push(monthlySalary);
 
                 // 財務計算
