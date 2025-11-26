@@ -2,20 +2,15 @@
 // MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
-    // 尉/校級軍官
     'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
     'S3': { rank: '中尉', base: 28000, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
     'S4': { rank: '上尉', base: 31000, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
     'M1': { rank: '少校', base: 38000, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
     'M2': { rank: '中校', base: 45000, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-    'M3': { rank: '上校', base: 52000, pro_add: 65000, food_add: 2840, promotion_years: 5, annual_growth: 0.015 },
-    // 將級軍官 (模擬數據)
-    'S5': { rank: '少將', base: 60000, pro_add: 75000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
-    'S6': { rank: '中將', base: 70000, pro_add: 85000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
-    'S7': { rank: '上將', base: 80000, pro_add: 95000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
+    'M3': { rank: '上校', base: 52000, pro_add: 65000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
 };
 
-const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'S5', 'S6', 'S7'];
+const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
 // 2026年起志願役人員固定加給 (NT$30,000)
 const VOLUNTEER_ADDITION_2026 = 30000; 
 
@@ -59,7 +54,6 @@ function calculateCustomAllowanceTotal() {
     const allowanceInputs = document.querySelectorAll('.allowance-value');
     let total = 0;
     allowanceInputs.forEach(input => {
-        // 使用 parseInt(input.value) || 0 來確保即使輸入為空或無效，也能得到 0
         const value = parseInt(input.value) || 0; 
         total += value;
     });
@@ -68,6 +62,7 @@ function calculateCustomAllowanceTotal() {
 
 /**
  * 根據階級、年資、及自訂津貼計算當前月薪總額
+ * 薪資 = (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 自訂加給總和) * 年資成長率
  */
 function calculateMonthlySalary(rankCode, year, customAdd) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
@@ -255,7 +250,7 @@ function runSimulation() {
             }
         }
         
-        // 獲取當前月薪
+        // 獲取當前月薪 (只傳入 customAllowance)
         let monthlySalary = calculateMonthlySalary(currentRank, year, customAllowance);
         monthlySalaryData.push(monthlySalary);
 
@@ -291,7 +286,7 @@ function runSimulation() {
 document.addEventListener('DOMContentLoaded', () => {
     // 檢查自訂加給容器是否為空，如果為空，則預設新增一個輸入框
     const container = document.getElementById('custom-allowances-container');
-    if (container && container.children.length === 0) {
+    if (container.children.length === 0) {
         addCustomAllowance();
     }
     // 運行初始模擬
