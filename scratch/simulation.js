@@ -1,6 +1,5 @@
 // =========================================================
-// MOCK DATA: 國軍軍官薪資結構 (已包含將級軍官)
-// 註：將級軍官的本俸和加給為模擬數據，需參考真實薪資表。
+// MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
     // 尉/校級軍官
@@ -54,12 +53,14 @@ function addCustomAllowance() {
 }
 
 /**
- * 計算所有自訂加給輸入框的總和 (避免空值錯誤)
+ * 計算所有自訂加給輸入框的總和 (已修正，確保即使輸入為空字串，也能正確返回 0)
  */
 function calculateCustomAllowanceTotal() {
+    // 確保只選擇具有 allowance-value 類的輸入框
     const allowanceInputs = document.querySelectorAll('.allowance-value');
     let total = 0;
     allowanceInputs.forEach(input => {
+        // 使用 parseInt(input.value) || 0 這是最穩定的取值方式
         const value = parseInt(input.value) || 0; 
         total += value;
     });
@@ -68,7 +69,6 @@ function calculateCustomAllowanceTotal() {
 
 /**
  * 根據階級、年資、及自訂津貼計算當前月薪總額
- * 薪資 = (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 自訂加給總和) * 年資成長率
  */
 function calculateMonthlySalary(rankCode, year, customAdd) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
@@ -218,7 +218,7 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 獲取所有自訂加給的總和
+    // 獲取所有自訂加給的總和 (已加固)
     const customAllowance = calculateCustomAllowanceTotal(); 
     
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
@@ -292,7 +292,7 @@ function runSimulation() {
 document.addEventListener('DOMContentLoaded', () => {
     // 檢查自訂加給容器是否為空，如果為空，則預設新增一個輸入框
     const container = document.getElementById('custom-allowances-container');
-    if (container.children.length === 0) {
+    if (container && container.children.length === 0) {
         addCustomAllowance();
     }
     // 運行初始模擬
