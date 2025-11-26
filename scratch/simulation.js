@@ -42,17 +42,21 @@ function addCustomAllowance() {
             </button>
         </div>
     `;
-    container.insertAdjacentHTML('beforeend', newAllowanceHtml);
+    // 使用 requestAnimationFrame 確保 DOM 更新平滑
+    requestAnimationFrame(() => {
+        container.insertAdjacentHTML('beforeend', newAllowanceHtml);
+    });
 }
 
 /**
- * 計算所有自訂加給輸入框的總和
+ * 計算所有自訂加給輸入框的總和 (避免空值錯誤)
  */
 function calculateCustomAllowanceTotal() {
+    // 使用 document.querySelectorAll 獲取所有具有 allowance-value 類別的輸入框
     const allowanceInputs = document.querySelectorAll('.allowance-value');
     let total = 0;
     allowanceInputs.forEach(input => {
-        // 使用 parseFloat 以處理潛在的非整數輸入，然後轉為整數
+        // 使用 parseInt(input.value) || 0 來確保即使輸入為空或無效，也能得到 0
         const value = parseInt(input.value) || 0; 
         total += value;
     });
@@ -61,7 +65,6 @@ function calculateCustomAllowanceTotal() {
 
 /**
  * 根據階級、年資、及所有額外津貼計算當前月薪總額
- * 薪資 = (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 所有額外加給) * 年資成長率
  */
 function calculateMonthlySalary(rankCode, year, leadershipAdd, dutyAdd, regionAdd, customAdd) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
@@ -216,7 +219,7 @@ function runSimulation() {
     const dutyAllowance = parseInt(document.getElementById('dutyAllowance').value) || 0;
     const regionAllowance = parseInt(document.getElementById('regionAllowance').value) || 0;
     
-    // 獲取所有自訂加給的總和
+    // 獲取所有自訂加給的總和 (已修復，確保計算不會出錯)
     const customAllowance = calculateCustomAllowanceTotal(); 
     
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
@@ -286,9 +289,13 @@ function runSimulation() {
     renderScenarioChart(years, monthlySalaryData, livingCost, savingsRate);
 }
 
-// 系統啟動時，自動運行一次模擬以顯示預設圖表
+// 系統啟動時的初始化
 document.addEventListener('DOMContentLoaded', () => {
-    // 預設新增一個空白的自訂加給輸入框，確保頁面載入時有至少一個項目可見
-    addCustomAllowance();
+    // 檢查自訂加給容器是否為空，如果為空，則預設新增一個輸入框
+    const container = document.getElementById('custom-allowances-container');
+    if (container.children.length === 0) {
+        addCustomAllowance();
+    }
+    // 運行初始模擬
     runSimulation();
 });
