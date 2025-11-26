@@ -1,5 +1,6 @@
 // =========================================================
 // MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
+// 註：這裏的 pro_add 視為「中將以下專業人員」的基本專業加給。
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
     'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
@@ -11,6 +12,9 @@ const REAL_SALARY_STRUCTURE = {
 };
 
 const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
+// 2026年起志願役人員固定加給 (NT$30,000)
+const VOLUNTEER_ADDITION_2026 = 30000; 
+
 let financialChartInstance;
 let scenarioChartInstance;
 
@@ -23,13 +27,20 @@ function formatCurrency(number) {
 
 /**
  * 根據階級、年資、及額外津貼計算當前月薪總額
+ * 薪資 = (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 勤務加給 + 地域加給) * 年資成長率
  */
-function calculateMonthlySalary(rankCode, year, extraAdd, specialAdd) {
+function calculateMonthlySalary(rankCode, year, dutyAdd, regionAdd) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
     if (!data) return 0;
     
-    // 基礎月薪 = 本俸 + 專業加給 + 伙食津貼 + 額外加給 + 特殊津貼
-    let monthlyTotal = data.base + data.pro_add + data.food_add + extraAdd + specialAdd;
+    // 基礎月薪 (本俸 + 專業加給 + 伙食津貼)
+    let monthlyTotal = data.base + data.pro_add + data.food_add;
+    
+    // 加上 2026年起志願役加給 (NT$30,000)
+    monthlyTotal += VOLUNTEER_ADDITION_2026;
+    
+    // 加上使用者選擇的勤務加給和地域加給
+    monthlyTotal += dutyAdd + regionAdd;
     
     // 考慮年度基礎成長
     monthlyTotal *= (1 + data.annual_growth) ** (year - 1);
@@ -166,9 +177,9 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 獲取額外津貼的數值
-    const extraProAdd = parseInt(document.getElementById('extraProAdd').value) || 0;
-    const specialAllowance = parseInt(document.getElementById('specialAllowance').value) || 0;
+    // 獲取勤務和地域加給的數值
+    const dutyAllowance = parseInt(document.getElementById('dutyAllowance').value) || 0;
+    const regionAllowance = parseInt(document.getElementById('regionAllowance').value) || 0;
     
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
         document.getElementById('simulation-status').innerText = '請確認服役年數與支出輸入正確。';
@@ -205,8 +216,8 @@ function runSimulation() {
             }
         }
         
-        // 獲取當前月薪 (傳入額外加給和津貼數值)
-        let monthlySalary = calculateMonthlySalary(currentRank, year, extraProAdd, specialAllowance);
+        // 獲取當前月薪 (傳入勤務加給和地域加給數值)
+        let monthlySalary = calculateMonthlySalary(currentRank, year, dutyAllowance, regionAllowance);
         monthlySalaryData.push(monthlySalary);
 
         // 財務計算
