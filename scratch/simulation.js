@@ -1,16 +1,22 @@
 // =========================================================
-// MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
+// MOCK DATA: 國軍軍官薪資結構 (已包含將級軍官)
+// 註：將級軍官的本俸和加給為模擬數據，需參考真實薪資表。
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
+    // 尉/校級軍官
     'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
     'S3': { rank: '中尉', base: 28000, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
     'S4': { rank: '上尉', base: 31000, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
     'M1': { rank: '少校', base: 38000, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
     'M2': { rank: '中校', base: 45000, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-    'M3': { rank: '上校', base: 52000, pro_add: 65000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
+    'M3': { rank: '上校', base: 52000, pro_add: 65000, food_add: 2840, promotion_years: 5, annual_growth: 0.015 },
+    // 將級軍官 (模擬數據)
+    'S5': { rank: '少將', base: 60000, pro_add: 75000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
+    'S6': { rank: '中將', base: 70000, pro_add: 85000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
+    'S7': { rank: '上將', base: 80000, pro_add: 95000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
 };
 
-const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
+const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'S5', 'S6', 'S7'];
 // 2026年起志願役人員固定加給 (NT$30,000)
 const VOLUNTEER_ADDITION_2026 = 30000; 
 
@@ -212,7 +218,7 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 獲取所有自訂加給的總和 (已修復，確保計算不會出錯)
+    // 獲取所有自訂加給的總和
     const customAllowance = calculateCustomAllowanceTotal(); 
     
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
@@ -250,7 +256,7 @@ function runSimulation() {
             }
         }
         
-        // 獲取當前月薪 (只傳入 customAllowance)
+        // 獲取當前月薪
         let monthlySalary = calculateMonthlySalary(currentRank, year, customAllowance);
         monthlySalaryData.push(monthlySalary);
 
