@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 - 最終修復版</title>
+    <title>軍人職涯薪資規劃決策支援系統 - 最終穩定版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -163,7 +163,6 @@
                     </button>
                 </div>
             `;
-            // 使用 requestAnimationFrame 確保 DOM 更新平滑
             requestAnimationFrame(() => {
                 container.insertAdjacentHTML('beforeend', newAllowanceHtml);
             });
@@ -282,7 +281,7 @@
             
             const baseAsset = calcScenarioAsset(baseRate);
             const lowAsset = calcScenarioAsset(lowRate);
-            const highAsset = calcScenarioAsset(highRate);
+            const highAsset = calcScenarioAsset(highAsset);
 
             const ctx = document.getElementById('scenarioChart').getContext('2d');
             scenarioChartInstance = new Chart(ctx, {
@@ -360,4 +359,60 @@
                 years.push(`第 ${year} 年`);
 
                 // 檢查晉升邏輯：
-                const currentRankData = REAL_SAL
+                const currentRankData = REAL_SALARY_STRUCTURE[currentRank];
+                const currentIndex = RANK_ORDER.indexOf(currentRank);
+                
+                if (yearOfRank >= currentRankData.promotion_years && currentIndex < targetRankIndex) {
+                    
+                    const nextRankIndex = currentIndex + 1;
+                    if (nextRankIndex <= targetRankIndex) { 
+                        currentRank = RANK_ORDER[nextRankIndex];
+                        yearOfRank = 0; 
+                    }
+                }
+                
+                // 獲取當前月薪
+                let monthlySalary = calculateMonthlySalary(currentRank, year, customAllowance);
+                monthlySalaryData.push(monthlySalary);
+
+                // 財務計算
+                const annualSalary = monthlySalary * 12;
+                const annualLivingCost = livingCost * 12;
+                
+                const annualNetIncome = Math.max(0, annualSalary - annualLivingCost); 
+                
+                const annualSavingsInvestment = annualNetIncome * savingsRate;
+                const annualRemainingCash = annualNetIncome * (1 - savingsRate);
+                
+                totalCashFlow += annualRemainingCash;
+                currentAsset = currentAsset * (1 + returnRate) + annualSavingsInvestment;
+                totalAssetData.push(currentAsset);
+                
+                yearOfRank++; 
+            }
+
+            // 3. 輸出核心數據
+            const finalAsset = totalAssetData[totalAssetData.length - 1] || 0;
+            const avgMonthlyCashFlow = totalCashFlow / serviceYears / 12 || 0;
+            
+            document.getElementById('total-asset').innerText = formatCurrency(finalAsset);
+            document.getElementById('avg-cashflow').innerText = formatCurrency(avgMonthlyCashFlow);
+            
+            // 4. 繪製圖表
+            renderFinancialChart(years, monthlySalaryData, totalAssetData);
+            renderScenarioChart(years, monthlySalaryData, livingCost, savingsRate);
+        }
+
+        // 系統啟動時的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 檢查自訂加給容器是否為空，如果為空，則預設新增一個輸入框
+            const container = document.getElementById('custom-allowances-container');
+            if (container && container.children.length === 0) {
+                addCustomAllowance();
+            }
+            // 運行初始模擬
+            runSimulation();
+        });
+    </script>
+</body>
+</html>
