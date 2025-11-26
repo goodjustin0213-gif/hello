@@ -42,7 +42,6 @@ function addCustomAllowance() {
             </button>
         </div>
     `;
-    // 使用 requestAnimationFrame 確保 DOM 更新平滑
     requestAnimationFrame(() => {
         container.insertAdjacentHTML('beforeend', newAllowanceHtml);
     });
@@ -52,11 +51,9 @@ function addCustomAllowance() {
  * 計算所有自訂加給輸入框的總和 (避免空值錯誤)
  */
 function calculateCustomAllowanceTotal() {
-    // 使用 document.querySelectorAll 獲取所有具有 allowance-value 類別的輸入框
     const allowanceInputs = document.querySelectorAll('.allowance-value');
     let total = 0;
     allowanceInputs.forEach(input => {
-        // 使用 parseInt(input.value) || 0 來確保即使輸入為空或無效，也能得到 0
         const value = parseInt(input.value) || 0; 
         total += value;
     });
@@ -64,9 +61,10 @@ function calculateCustomAllowanceTotal() {
 }
 
 /**
- * 根據階級、年資、及所有額外津貼計算當前月薪總額
+ * 根據階級、年資、及自訂津貼計算當前月薪總額
+ * 薪資 = (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 自訂加給總和) * 年資成長率
  */
-function calculateMonthlySalary(rankCode, year, leadershipAdd, dutyAdd, regionAdd, customAdd) {
+function calculateMonthlySalary(rankCode, year, customAdd) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
     if (!data) return 0;
     
@@ -76,8 +74,8 @@ function calculateMonthlySalary(rankCode, year, leadershipAdd, dutyAdd, regionAd
     // 2. 加上 2026年起志願役固定加給 (NT$30,000)
     monthlyTotal += VOLUNTEER_ADDITION_2026;
     
-    // 3. 加上使用者選擇的所有額外加給 (領導、勤務、地域、自訂)
-    monthlyTotal += leadershipAdd + dutyAdd + regionAdd + customAdd;
+    // 3. 加上使用者輸入的所有自訂加給
+    monthlyTotal += customAdd;
     
     // 4. 考慮年度基礎成長
     monthlyTotal *= (1 + data.annual_growth) ** (year - 1);
@@ -214,11 +212,6 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 獲取所有選單加給的數值
-    const leadershipAdd = parseInt(document.getElementById('leadershipAdd').value) || 0;
-    const dutyAllowance = parseInt(document.getElementById('dutyAllowance').value) || 0;
-    const regionAllowance = parseInt(document.getElementById('regionAllowance').value) || 0;
-    
     // 獲取所有自訂加給的總和 (已修復，確保計算不會出錯)
     const customAllowance = calculateCustomAllowanceTotal(); 
     
@@ -257,8 +250,8 @@ function runSimulation() {
             }
         }
         
-        // 獲取當前月薪 (傳入所有加給數值)
-        let monthlySalary = calculateMonthlySalary(currentRank, year, leadershipAdd, dutyAllowance, regionAllowance, customAllowance);
+        // 獲取當前月薪 (只傳入 customAllowance)
+        let monthlySalary = calculateMonthlySalary(currentRank, year, customAllowance);
         monthlySalaryData.push(monthlySalary);
 
         // 財務計算
