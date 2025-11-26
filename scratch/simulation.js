@@ -16,12 +16,47 @@ const VOLUNTEER_ADDITION_2026 = 30000;
 
 let financialChartInstance;
 let scenarioChartInstance;
+let allowanceCounter = 0; // 用於追蹤自訂加給項目的 ID
 
 // --- 輔助函數 ---
 
 function formatCurrency(number) {
     if (isNaN(number) || number === 0) return '--';
     return `NT$ ${Math.round(number).toLocaleString('zh-TW')}`;
+}
+
+/**
+ * 新增一組自訂加給輸入框 (名稱+金額)
+ */
+function addCustomAllowance() {
+    allowanceCounter++;
+    const container = document.getElementById('custom-allowances-container');
+    const itemId = `custom-item-${allowanceCounter}`;
+
+    const newAllowanceHtml = `
+        <div id="${itemId}" class="flex space-x-2 items-center">
+            <input type="text" placeholder="項目名稱 (例如: 超時加給)" class="w-2/3 border rounded-md py-1 px-2 text-sm">
+            <input type="number" placeholder="金額 (元/月)" value="0" class="w-1/3 border rounded-md py-1 px-2 text-sm allowance-value">
+            <button type="button" onclick="document.getElementById('${itemId}').remove()" class="text-red-500 hover:text-red-700 text-lg font-bold">
+                &times;
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', newAllowanceHtml);
+}
+
+/**
+ * 計算所有自訂加給輸入框的總和
+ */
+function calculateCustomAllowanceTotal() {
+    const allowanceInputs = document.querySelectorAll('.allowance-value');
+    let total = 0;
+    allowanceInputs.forEach(input => {
+        // 使用 parseFloat 以處理潛在的非整數輸入，然後轉為整數
+        const value = parseInt(input.value) || 0; 
+        total += value;
+    });
+    return total;
 }
 
 /**
@@ -176,11 +211,13 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 獲取所有加給的數值
+    // 獲取所有選單加給的數值
     const leadershipAdd = parseInt(document.getElementById('leadershipAdd').value) || 0;
     const dutyAllowance = parseInt(document.getElementById('dutyAllowance').value) || 0;
     const regionAllowance = parseInt(document.getElementById('regionAllowance').value) || 0;
-    const customAllowance = parseInt(document.getElementById('customAllowance').value) || 0;
+    
+    // 獲取所有自訂加給的總和
+    const customAllowance = calculateCustomAllowanceTotal(); 
     
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
         document.getElementById('simulation-status').innerText = '請確認服役年數與支出輸入正確。';
@@ -251,5 +288,7 @@ function runSimulation() {
 
 // 系統啟動時，自動運行一次模擬以顯示預設圖表
 document.addEventListener('DOMContentLoaded', () => {
+    // 預設新增一個空白的自訂加給輸入框，確保頁面載入時有至少一個項目可見
+    addCustomAllowance();
     runSimulation();
 });
