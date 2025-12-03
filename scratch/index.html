@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 - 2025年新制版</title>
+    <title>軍人職涯薪資規劃決策支援系統 - 將官與時程加給版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
-        /* CSS 樣式保持不變 */
         body { background-color: #f7f9fc; }
         .scrollable-content { min-height: calc(100vh - 8rem); }
         input[type=number]::-webkit-outer-spin-button,
@@ -21,42 +20,52 @@
     </style>
 </head>
 <body>
-    <header class="bg-indigo-800 text-white p-4 shadow-lg sticky top-0 z-10">
+    <header class="bg-indigo-900 text-white p-4 shadow-lg sticky top-0 z-10">
         <h1 class="text-2xl font-extrabold tracking-wide">🚀 軍人職涯財務決策支援系統</h1>
-        <p class="text-indigo-200 text-sm mt-1">2025新制版：已更新 114 年生效俸額表，採用定額儲蓄制。</p>
+        <p class="text-indigo-200 text-sm mt-1">進階版：支援將官階級與階段性加給設定</p>
     </header>
 
     <main class="flex flex-col lg:flex-row min-h-screen">
-        <aside id="input-parameters" class="w-full lg:w-1/4 p-6 bg-white border-r border-gray-200 shadow-xl">
+        <aside id="input-parameters" class="w-full lg:w-1/3 p-6 bg-white border-r border-gray-200 shadow-xl overflow-y-auto" style="max-height: 100vh;">
             <h2 class="text-xl font-bold mb-4 text-indigo-700">⚙️ 財務模擬參數設定</h2>
             
             <div class="mb-5 border-b pb-4">
                 <h3 class="font-semibold text-gray-700 mb-2">1. 軍旅生涯假設 (起始階級固定為少尉 S2)</h3>
                 
                 <label for="targetRank" class="block text-sm font-medium text-gray-600">最終目標階級 (最高晉升位階)</label>
-                <select id="targetRank" class="mt-1 block w-full border rounded-md py-2 px-3">
+                <select id="targetRank" class="mt-1 block w-full border rounded-md py-2 px-3 bg-gray-50">
                     <option value="S2">少尉 (S2)</option>
                     <option value="S3">中尉 (S3)</option>
                     <option value="S4">上尉 (S4)</option>
                     <option value="M1">少校 (M1)</option>
                     <option value="M2">中校 (M2)</option>
                     <option value="M3">上校 (M3)</option>
+                    <option value="G1" class="text-red-600 font-bold">少將 (G1)</option>
+                    <option value="G2" class="text-red-600 font-bold">中將 (G2)</option>
+                    <option value="G3" class="text-red-600 font-bold">二級上將 (G3)</option>
                 </select>
                 
                 <label for="serviceYears" class="block text-sm font-medium text-gray-600 mt-3">預計服役總年數 (10-35年)</label>
-                <input type="number" id="serviceYears" value="20" min="10" max="35" class="mt-1 block w-full border rounded-md py-2 px-3">
+                <input type="number" id="serviceYears" value="25" min="10" max="40" class="mt-1 block w-full border rounded-md py-2 px-3">
             </div>
 
             <div class="mb-5 border-b pb-4">
-                <h3 class="font-semibold text-gray-700 mb-2">2. 所有額外加給與津貼 (月額)</h3>
-                <p class="text-xs text-indigo-500 mb-2">請根據您的職務自行填寫所有加給總額。</p>
-                <p class="text-xs text-red-500 mb-2 font-bold">註：已自動包含志願役加給 NT$15,000 元。</p>
+                <h3 class="font-semibold text-gray-700 mb-2">2. 階段性額外加給 (月額)</h3>
+                <p class="text-xs text-indigo-500 mb-2">請設定加給金額及其領取的「開始」與「結束」年份。</p>
+                <p class="text-xs text-red-500 mb-2 font-bold">註：已自動包含志願役加給 NT$15,000 元 (全期)。</p>
                 
-                <label class="block text-sm font-medium text-gray-600 mt-3">加給項目名稱與金額 (例如: 領導加給, 外島加給)</label>
+                <div class="grid grid-cols-12 gap-1 text-xs text-gray-500 mb-1 px-1">
+                    <div class="col-span-4">項目名稱</div>
+                    <div class="col-span-3">金額</div>
+                    <div class="col-span-2 text-center">起始年</div>
+                    <div class="col-span-2 text-center">結束年</div>
+                    <div class="col-span-1"></div>
+                </div>
+
                 <div id="custom-allowances-container" class="space-y-2 mt-1">
                 </div>
-                <button type="button" onclick="addCustomAllowance()" class="w-full bg-indigo-100 text-indigo-700 text-sm font-semibold py-1 mt-2 rounded-md hover:bg-indigo-200 transition duration-150">
-                    + 新增加給項目
+                <button type="button" onclick="addCustomAllowance()" class="w-full bg-indigo-100 text-indigo-700 text-sm font-semibold py-2 mt-2 rounded-md hover:bg-indigo-200 transition duration-150 border border-indigo-200">
+                    + 新增階段性加給 (例如: 主官職、外島)
                 </button>
             </div>
 
@@ -76,7 +85,7 @@
                 <input type="number" id="livingCost" value="15000" class="mt-1 block w-full border rounded-md py-2 px-3">
             </div>
 
-            <button onclick="runSimulation()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg transition duration-150">
+            <button onclick="runSimulation()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg transition duration-150 mb-8">
                 🚀 執行財務決策模擬
             </button>
             <p id="simulation-status" class="mt-4 text-center text-sm text-red-500 font-semibold hidden">
@@ -84,7 +93,7 @@
             </p>
         </aside>
 
-        <section class="w-full lg:w-3/4 p-6 scrollable-content">
+        <section class="w-full lg:w-2/3 p-6 scrollable-content">
             
             <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div class="bg-white p-5 rounded-lg shadow-md border-t-4 border-indigo-500">
@@ -95,7 +104,7 @@
                 <div class="bg-white p-5 rounded-lg shadow-md border-t-4 border-orange-500">
                     <p class="text-sm text-gray-500">服役期間平均月淨現金流</p>
                     <p id="avg-cashflow" class="text-3xl font-extrabold text-orange-800 mt-1">--</p>
-                    <p class="text-xs text-gray-400 mt-1">扣除支出與固定投資後的餘裕 (負數代表透支)</p>
+                    <p class="text-xs text-gray-400 mt-1">扣除支出與固定投資後的餘裕</p>
                 </div>
             </div>
 
@@ -114,113 +123,146 @@
     
     <script>
         // =========================================================
-        // DATA SOURCE: 114年1月1日生效 志願役現役軍人俸額表 
+        // DATA SOURCE: 114年1月1日生效 志願役現役軍人俸額表
         // =========================================================
+        // 註：將級軍官資料引用自 ，專業加給因資料缺乏暫以預估值設定
         const REAL_SALARY_STRUCTURE = {
             'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
             'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
             'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
             'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
             'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-            'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
+            'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 }, // 修改上校最快6年
+            // 新增將官階級 (本俸來源: Source 2，專業加給: 預估)
+            'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, promotion_years: 4, annual_growth: 0.01 },
+            'G2': { rank: '中將', base: 53390, pro_add: 80000, food_add: 2840, promotion_years: 3, annual_growth: 0.01 },
+            'G3': { rank: '二級上將', base: 109520, pro_add: 90000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.01 }
         };
 
-        const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
+        const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'G1', 'G2', 'G3'];
         
         // 志願役人員固定加給 (NT$15,000)
         const VOLUNTEER_ADDITION_2026 = 15000;
         
         // 國軍退撫基金提撥率 (假設 14%，其中個人負擔 35%)
         const PENSION_RATE = 0.14; 
-        const INDIVIDUAL_PENSION_RATIO = 0.35; // 個人負擔總提撥率的 35% (約 4.9%)
+        const INDIVIDUAL_PENSION_RATIO = 0.35; 
 
         let financialChartInstance;
         let scenarioChartInstance;
-        let allowanceCounter = 0; // 用於追蹤自訂加給項目的 ID
+        let allowanceCounter = 0;
 
         // --- 輔助函數 ---
 
         function formatCurrency(number) {
             if (isNaN(number) || number === 0) return '--';
-            // 處理負數顯示 (例如透支時)
             const absNum = Math.abs(Math.round(number));
             const sign = number < 0 ? "-" : "";
             return `${sign}NT$ ${absNum.toLocaleString('zh-TW')}`;
         }
 
         /**
-         * 新增一組自訂加給輸入框 (名稱+金額)
+         * 新增一組自訂加給輸入框 (名稱 + 金額 + 起始年 + 結束年)
          */
         function addCustomAllowance() {
             allowanceCounter++;
             const container = document.getElementById('custom-allowances-container');
             const itemId = `custom-item-${allowanceCounter}`;
+            const maxYears = document.getElementById('serviceYears').value;
 
-            // 優化: 初始值給予範例
+            // 範例預設值
             let defaultName = "";
             let defaultValue = 0;
+            let defaultStart = 1;
+            let defaultEnd = maxYears;
+            
             if (allowanceCounter === 1 && container.children.length === 0) {
-                defaultName = "領導加給 (範例)";
-                defaultValue = 5000;
+                defaultName = "外島加給 (範例)";
+                defaultValue = 9790;
+                defaultStart = 1;
+                defaultEnd = 3; // 假設只去3年
             }
 
             const newAllowanceHtml = `
-                <div id="${itemId}" class="flex space-x-2 items-center">
-                    <input type="text" placeholder="項目名稱 (例如: 超時加給)" value="${defaultName}" class="w-2/3 border rounded-md py-1 px-2 text-sm" oninput="runSimulation()">
-                    <input type="number" placeholder="金額 (元/月)" value="${defaultValue}" class="w-1/3 border rounded-md py-1 px-2 text-sm allowance-value" oninput="runSimulation()">
-                    <button type="button" onclick="document.getElementById('${itemId}').remove(); runSimulation();" class="text-red-500 hover:text-red-700 text-lg font-bold">
-                        &times;
-                    </button>
+                <div id="${itemId}" class="grid grid-cols-12 gap-1 items-center allowance-row mb-2">
+                    <div class="col-span-4">
+                        <input type="text" placeholder="項目" value="${defaultName}" class="w-full border rounded-md py-1 px-2 text-sm allow-name" oninput="runSimulation()">
+                    </div>
+                    <div class="col-span-3">
+                        <input type="number" placeholder="金額" value="${defaultValue}" class="w-full border rounded-md py-1 px-2 text-sm allow-value" oninput="runSimulation()">
+                    </div>
+                    <div class="col-span-2">
+                        <input type="number" placeholder="始" value="${defaultStart}" min="1" class="w-full border rounded-md py-1 px-1 text-sm text-center allow-start" oninput="runSimulation()">
+                    </div>
+                    <div class="col-span-2">
+                        <input type="number" placeholder="末" value="${defaultEnd}" min="1" class="w-full border rounded-md py-1 px-1 text-sm text-center allow-end" oninput="runSimulation()">
+                    </div>
+                    <div class="col-span-1 text-center">
+                        <button type="button" onclick="document.getElementById('${itemId}').remove(); runSimulation();" class="text-red-500 hover:text-red-700 font-bold text-lg">
+                            &times;
+                        </button>
+                    </div>
                 </div>
             `;
-            requestAnimationFrame(() => {
-                container.insertAdjacentHTML('beforeend', newAllowanceHtml);
-            });
+            // 使用 insertAdjacentHTML 避免破壞現有輸入框的狀態
+            container.insertAdjacentHTML('beforeend', newAllowanceHtml);
         }
 
         /**
-         * 計算所有自訂加給輸入框的總和 (避免空值錯誤)
+         * 獲取所有自訂加給的設定 (回傳陣列)
          */
-        function calculateCustomAllowanceTotal() {
-            const allowanceInputs = document.querySelectorAll('.allowance-value');
+        function getCustomAllowancesConfig() {
+            const rows = document.querySelectorAll('.allowance-row');
+            const configs = [];
+            
+            rows.forEach(row => {
+                const amount = parseInt(row.querySelector('.allow-value').value) || 0;
+                const start = parseInt(row.querySelector('.allow-start').value) || 1;
+                const end = parseInt(row.querySelector('.allow-end').value) || 100;
+                
+                if (amount > 0) {
+                    configs.push({ amount, start, end });
+                }
+            });
+            return configs;
+        }
+
+        /**
+         * 計算某一年度的額外加給總和
+         */
+        function calculateYearlyAllowance(year, allowanceConfigs) {
             let total = 0;
-            allowanceInputs.forEach(input => {
-                const value = parseInt(input.value) || 0; 
-                total += value;
+            allowanceConfigs.forEach(config => {
+                if (year >= config.start && year <= config.end) {
+                    total += config.amount;
+                }
             });
             return total;
         }
 
         /**
-         * 根據階級、年資、及自訂津貼計算當前月薪總額
-         * 淨薪資 = (總收入) - (本俸+專業加給的提撥基數) * 個人退撫提撥率
+         * 根據階級、年資、及「該年度」的自訂津貼計算當前月薪總額
          */
-        function calculateMonthlySalary(rankCode, year, customAdd) {
+        function calculateMonthlySalary(rankCode, year, currentYearAllowance) {
             const data = REAL_SALARY_STRUCTURE[rankCode];
             if (!data) return 0;
             
-            // 1. 提撥基準: 本俸 + 專業加給
             const pensionBase = data.base + data.pro_add;
             
-            // 2. 稅前總收入 (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 自訂加給總和)
-            let monthlyTotal = pensionBase + data.food_add + VOLUNTEER_ADDITION_2026 + customAdd;
+            // 稅前總收入 (本俸 + 專業 + 伙食 + 志願役1.5萬 + 該年自訂加給)
+            let monthlyTotal = pensionBase + data.food_add + VOLUNTEER_ADDITION_2026 + currentYearAllowance;
             
-            // 3. 考慮年度基礎成長 (提撥前先成長)
+            // 考慮年度基礎成長
             monthlyTotal *= (1 + data.annual_growth) ** (year - 1);
             
-            // 4. 扣除個人退撫基金提撥額
-            // 提撥基數隨年資成長
+            // 扣除退撫 (基準也隨年資成長)
             const actualPensionDeduction = pensionBase * PENSION_RATE * INDIVIDUAL_PENSION_RATIO * ((1 + data.annual_growth) ** (year - 1));
 
-            // 實際每月淨薪資 (可支配所得)
-            const netMonthlySalary = monthlyTotal - actualPensionDeduction;
-            
-            return Math.round(netMonthlySalary);
+            return Math.round(monthlyTotal - actualPensionDeduction);
         }
 
         function renderFinancialChart(years, salaryData, assetData) {
             if (financialChartInstance) financialChartInstance.destroy();
-            
             const ctx = document.getElementById('financialChart').getContext('2d');
             financialChartInstance = new Chart(ctx, {
                 type: 'line',
@@ -228,21 +270,14 @@
                     labels: years,
                     datasets: [
                         {
-                            label: '每月淨薪資總額 (NT$)', 
+                            label: '每月淨薪資 (含加給)', 
                             data: salaryData,
-                            borderColor: 'rgb(79, 70, 229)', 
-                            yAxisID: 'y1',
-                            fill: false,
-                            tension: 0.1
+                            borderColor: 'rgb(79, 70, 229)', yAxisID: 'y1', fill: false, tension: 0.1
                         },
                         {
-                            label: '累積資產總額 (NT$)',
+                            label: '累積資產',
                             data: assetData,
-                            borderColor: 'rgb(20, 184, 166)', 
-                            yAxisID: 'y2',
-                            fill: true,
-                            backgroundColor: 'rgba(20, 184, 166, 0.2)',
-                            tension: 0.3
+                            borderColor: 'rgb(20, 184, 166)', yAxisID: 'y2', fill: true, backgroundColor: 'rgba(20, 184, 166, 0.2)', tension: 0.3
                         }
                     ]
                 },
@@ -250,41 +285,23 @@
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: { display: true, text: '月淨薪資總額 (元)' }
-                        },
-                        y2: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: { display: true, text: '累積資產總額 (元)' },
-                            grid: { drawOnChartArea: false }
-                        }
+                        y1: { type: 'linear', display: true, position: 'left', title: { display: true, text: '月淨薪資 (元)' } },
+                        y2: { type: 'linear', display: true, position: 'right', title: { display: true, text: '累積資產 (元)' }, grid: { drawOnChartArea: false } }
                     },
-                    plugins: { title: { display: true, text: '軍旅生涯財務預測 (淨薪資與資產累積)' } }
                 }
             });
         }
 
         function renderScenarioChart(years, baseSalaryData, livingCost, monthlySavings) {
             if (scenarioChartInstance) scenarioChartInstance.destroy();
-
-            const lowRate = 0.02; 
-            const highRate = 0.08; 
+            const lowRate = 0.02; const highRate = 0.08;
             const baseRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
 
             const calcScenarioAsset = (rate) => {
                 let asset = 0;
                 const data = [];
-                
                 for (let i = 0; i < baseSalaryData.length; i++) {
-                    // 固定儲蓄模式下，資產累積只看固定投入的錢 + 複利
-                    const annualSavingsInvestment = monthlySavings * 12;
-                    
-                    asset = asset * (1 + rate) + annualSavingsInvestment;
+                    asset = asset * (1 + rate) + (monthlySavings * 12);
                     data.push(asset);
                 }
                 return data;
@@ -300,141 +317,101 @@
                 data: {
                     labels: years,
                     datasets: [
-                        {
-                            label: `低風險資產累積 (報酬率 ${lowRate * 100}%)`,
-                            data: lowAsset,
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
-                            tension: 0.2,
-                        },
-                        {
-                            label: `您的假設情境 (報酬率 ${baseRate * 100}%)`,
-                            data: baseAsset,
-                            borderColor: 'rgb(54, 162, 235)',
-                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                            borderWidth: 3,
-                            tension: 0.2,
-                        },
-                        {
-                            label: `高風險資產累積 (報酬率 ${highRate * 100}%)`,
-                            data: highAsset,
-                            borderColor: 'rgb(75, 192, 192)',
-                            backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                            tension: 0.2,
-                        }
+                        { label: `低風險 (${lowRate * 100}%)`, data: lowAsset, borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)', tension: 0.2 },
+                        { label: `您的設定 (${baseRate * 100}%)`, data: baseAsset, borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.5)', borderWidth: 3, tension: 0.2 },
+                        { label: `高風險 (${highRate * 100}%)`, data: highAsset, borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.5)', tension: 0.2 }
                     ]
                 },
                 options: {
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
-                    scales: { y: { title: { display: true, text: '累積資產總額 (元)' } } },
-                    plugins: { title: { display: true, text: '不同投資報酬率下的資產累積情境比較' } }
+                    scales: { y: { title: { display: true, text: '累積資產 (元)' } } }
                 }
             });
         }
 
-        /**
-         * 執行核心財務模擬運算 (主要函數)
-         */
         function runSimulation() {
-            // 1. 取得使用者輸入參數
             const targetRank = document.getElementById('targetRank').value;
             const serviceYears = parseInt(document.getElementById('serviceYears').value) || 0;
-            
-            // 取得固定儲蓄金額 (Monthly Savings Amount)
             const monthlySavings = parseInt(document.getElementById('monthlySavings').value) || 0;
-            
             const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
             const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
             
-            // 獲取所有自訂加給的總和
-            const customAllowance = calculateCustomAllowanceTotal(); 
+            // 1. 取得所有加給的設定 (陣列)
+            const allowanceConfigs = getCustomAllowancesConfig();
             
-            if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
-                document.getElementById('simulation-status').innerText = '請確認服役年數與支出輸入正確。';
-                document.getElementById('simulation-status').classList.remove('hidden');
-                return;
+            if (serviceYears < 10 || isNaN(serviceYears)) {
+                return; // 基本錯誤檢查
             }
-            document.getElementById('simulation-status').classList.add('hidden');
 
-            // 2. 核心計算迴圈初始化
             let currentAsset = 0;
-            let currentRank = 'S2'; 
-            let yearOfRank = 0; 
+            let currentRank = 'S2'; 
+            let yearOfRank = 0; 
             let totalCashFlow = 0;
             
             const years = [];
             const monthlySalaryData = [];
             const totalAssetData = [];
-            
-            const targetRankIndex = RANK_ORDER.indexOf(targetRank); 
+            const targetRankIndex = RANK_ORDER.indexOf(targetRank);
 
             for (let year = 1; year <= serviceYears; year++) {
                 years.push(`第 ${year} 年`);
 
-                // 檢查晉升邏輯：
+                // 2. 晉升邏輯
                 const currentRankData = REAL_SALARY_STRUCTURE[currentRank];
                 const currentIndex = RANK_ORDER.indexOf(currentRank);
                 
                 if (yearOfRank >= currentRankData.promotion_years && currentIndex < targetRankIndex) {
-                    
                     const nextRankIndex = currentIndex + 1;
-                    if (nextRankIndex <= targetRankIndex) { 
+                    if (nextRankIndex <= targetRankIndex) { 
                         currentRank = RANK_ORDER[nextRankIndex];
-                        yearOfRank = 0; 
+                        yearOfRank = 0; 
                     }
                 }
                 
-                // 獲取當前月薪 (已扣除退撫基金提撥額)
-                let monthlySalary = calculateMonthlySalary(currentRank, year, customAllowance);
+                // 3. 計算該年度適用的加給總額
+                const currentYearAllowance = calculateYearlyAllowance(year, allowanceConfigs);
+
+                // 4. 計算月薪
+                let monthlySalary = calculateMonthlySalary(currentRank, year, currentYearAllowance);
                 monthlySalaryData.push(monthlySalary);
 
-                // 財務計算
+                // 5. 財務計算 (定額儲蓄制)
                 const annualSalary = monthlySalary * 12;
                 const annualLivingCost = livingCost * 12;
-                const annualNetIncome = annualSalary - annualLivingCost; // 這裡不設為0，允許計算出負的現金流以示警
-                
-                // 固定儲蓄金額制
                 const annualSavingsInvestment = monthlySavings * 12;
-                
-                // 剩餘現金 = 淨收入 - 固定投資
+                const annualNetIncome = annualSalary - annualLivingCost;
                 const annualRemainingCash = annualNetIncome - annualSavingsInvestment;
                 
                 totalCashFlow += annualRemainingCash;
                 currentAsset = currentAsset * (1 + returnRate) + annualSavingsInvestment;
                 totalAssetData.push(currentAsset);
                 
-                yearOfRank++; 
+                yearOfRank++; 
             }
 
-            // 3. 輸出核心數據
             const finalAsset = totalAssetData[totalAssetData.length - 1] || 0;
             const avgMonthlyCashFlow = totalCashFlow / serviceYears / 12 || 0;
             
             document.getElementById('total-asset').innerText = formatCurrency(finalAsset);
             document.getElementById('avg-cashflow').innerText = formatCurrency(avgMonthlyCashFlow);
             
-            // 4. 繪製圖表
             renderFinancialChart(years, monthlySalaryData, totalAssetData);
             renderScenarioChart(years, monthlySalaryData, livingCost, monthlySavings);
         }
 
-        // 系統啟動時的初始化
         document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('custom-allowances-container');
-            
             if (container.children.length === 0) {
-                addCustomAllowance();
+                addCustomAllowance(); // 預設新增一筆
             }
             
-            // 為所有固定的 input/select 參數新增即時更新監聽
-            document.querySelectorAll('#input-parameters input:not(.allowance-value), #input-parameters select').forEach(element => {
-                // 使用 change 和 input 確保數字欄位和下拉選單都能即時反應
+            // 綁定輸入事件
+            document.querySelectorAll('#input-parameters input, #input-parameters select').forEach(element => {
                 element.addEventListener('change', runSimulation);
                 element.addEventListener('input', runSimulation);
             });
 
-            // 運行初始模擬
             runSimulation();
         });
     </script>
