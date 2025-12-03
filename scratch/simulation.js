@@ -1,18 +1,22 @@
 // =========================================================
-// DATA SOURCE: 114年1月1日生效 志願役現役軍人俸額表
+// DATA SOURCE: 依據《陸海空軍軍官士官任官條例》第6條規定
+// 網站: https://www.6laws.net/6law/law/%E9%99%B8%E6%B5%B7%E7%A9%BA%E8%BB%8D%E8%BB%8D%E5%AE%98%E5%A3%AB%E5%AE%98%E4%BB%BB%E5%AE%98%E6%A2%9D%E4%BE%8B.htm
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
-    // 校官與尉官資料 (依據 source: 2 更新本俸)
-    'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
-    'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
-    'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
-    'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-    'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-    'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-
-    // 新增將官階級 (本俸依據 source: 2，專業加給為推估值，因文件未列出)
-    'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, promotion_years: 4, annual_growth: 0.01 },
-    'G2': { rank: '中將', base: 53390, pro_add: 80000, food_add: 2840, promotion_years: 3, annual_growth: 0.01 },
+    // 【尉官】依據法規第6條
+    'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 1, annual_growth: 0.015 }, // 法規: 1-2年
+    'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 }, // 法規: 3年
+    'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 }, // 法規: 4年
+    
+    // 【校官】依據法規第6條
+    'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 }, // 法規: 4年
+    'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 }, // 法規: 4年
+    
+    // 【上校與將官】依據法規第6條：「由國防部依官額實際需要另定」
+    // 此處設定為一般常見標準以利模擬進行
+    'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 }, // 假設: 6年
+    'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, promotion_years: 4, annual_growth: 0.01 },  // 假設: 4年
+    'G2': { rank: '中將', base: 53390, pro_add: 80000, food_add: 2840, promotion_years: 3, annual_growth: 0.01 },  // 假設: 3年
     'G3': { rank: '二級上將', base: 109520, pro_add: 90000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.01 }
 };
 
@@ -38,27 +42,22 @@ function formatCurrency(number) {
     return `${sign}NT$ ${absNum.toLocaleString('zh-TW')}`;
 }
 
-/**
- * 新增一組自訂加給輸入框 (名稱 + 金額 + 起始年 + 結束年)
- */
 function addCustomAllowance() {
     allowanceCounter++;
     const container = document.getElementById('custom-allowances-container');
     const itemId = `custom-item-${allowanceCounter}`;
     const maxYears = document.getElementById('serviceYears').value;
 
-    // 範例預設值
     let defaultName = "";
     let defaultValue = 0;
     let defaultStart = 1;
     let defaultEnd = maxYears;
     
-    // 如果是第一筆，給個範例引導使用者
     if (allowanceCounter === 1 && container.children.length === 0) {
         defaultName = "外島加給 (範例)";
         defaultValue = 9790;
         defaultStart = 1;
-        defaultEnd = 3; // 假設只去3年
+        defaultEnd = 3; 
     }
 
     const newAllowanceHtml = `
@@ -85,29 +84,18 @@ function addCustomAllowance() {
     container.insertAdjacentHTML('beforeend', newAllowanceHtml);
 }
 
-/**
- * 獲取所有自訂加給的設定 (回傳陣列)
- */
 function getCustomAllowancesConfig() {
     const rows = document.querySelectorAll('.allowance-row');
     const configs = [];
-    
     rows.forEach(row => {
         const amount = parseInt(row.querySelector('.allow-value').value) || 0;
         const start = parseInt(row.querySelector('.allow-start').value) || 1;
         const end = parseInt(row.querySelector('.allow-end').value) || 100;
-        
-        if (amount > 0) {
-            configs.push({ amount, start, end });
-        }
+        if (amount > 0) configs.push({ amount, start, end });
     });
     return configs;
 }
 
-/**
- * 計算某一年度的額外加給總和
- * 邏輯：檢查當前年份是否在設定的 start 與 end 之間
- */
 function calculateYearlyAllowance(year, allowanceConfigs) {
     let total = 0;
     allowanceConfigs.forEach(config => {
@@ -118,22 +106,14 @@ function calculateYearlyAllowance(year, allowanceConfigs) {
     return total;
 }
 
-/**
- * 根據階級、年資、及「該年度」的自訂津貼計算當前月薪總額
- */
 function calculateMonthlySalary(rankCode, year, currentYearAllowance) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
     if (!data) return 0;
     
     const pensionBase = data.base + data.pro_add;
-    
-    // 稅前總收入 (本俸 + 專業 + 伙食 + 志願役1.5萬 + 該年自訂加給)
     let monthlyTotal = pensionBase + data.food_add + VOLUNTEER_ADDITION_2026 + currentYearAllowance;
-    
-    // 考慮年度基礎成長 (本俸與專業加給隨年資成長)
     monthlyTotal *= (1 + data.annual_growth) ** (year - 1);
     
-    // 扣除退撫 (基準也隨年資成長)
     const actualPensionDeduction = pensionBase * PENSION_RATE * INDIVIDUAL_PENSION_RATIO * ((1 + data.annual_growth) ** (year - 1));
 
     return Math.round(monthlyTotal - actualPensionDeduction);
@@ -179,7 +159,6 @@ function renderScenarioChart(years, baseSalaryData, livingCost, monthlySavings) 
         let asset = 0;
         const data = [];
         for (let i = 0; i < baseSalaryData.length; i++) {
-            // 定額儲蓄制：每年固定存入 (monthlySavings * 12) + 複利
             asset = asset * (1 + rate) + (monthlySavings * 12);
             data.push(asset);
         }
@@ -216,12 +195,9 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 1. 取得所有加給的設定 (陣列)
     const allowanceConfigs = getCustomAllowancesConfig();
     
-    if (serviceYears < 10 || isNaN(serviceYears)) {
-        return; // 基本錯誤檢查
-    }
+    if (serviceYears < 10 || isNaN(serviceYears)) return;
 
     let currentAsset = 0;
     let currentRank = 'S2'; 
@@ -236,10 +212,10 @@ function runSimulation() {
     for (let year = 1; year <= serviceYears; year++) {
         years.push(`第 ${year} 年`);
 
-        // 2. 晉升邏輯
         const currentRankData = REAL_SALARY_STRUCTURE[currentRank];
         const currentIndex = RANK_ORDER.indexOf(currentRank);
         
+        // 晉升判斷
         if (yearOfRank >= currentRankData.promotion_years && currentIndex < targetRankIndex) {
             const nextRankIndex = currentIndex + 1;
             if (nextRankIndex <= targetRankIndex) { 
@@ -248,14 +224,10 @@ function runSimulation() {
             }
         }
         
-        // 3. 計算該年度適用的加給總額
         const currentYearAllowance = calculateYearlyAllowance(year, allowanceConfigs);
-
-        // 4. 計算月薪 (帶入該年度的加給)
         let monthlySalary = calculateMonthlySalary(currentRank, year, currentYearAllowance);
         monthlySalaryData.push(monthlySalary);
 
-        // 5. 財務計算 (定額儲蓄制)
         const annualSalary = monthlySalary * 12;
         const annualLivingCost = livingCost * 12;
         const annualSavingsInvestment = monthlySavings * 12;
@@ -279,14 +251,12 @@ function runSimulation() {
     renderScenarioChart(years, monthlySalaryData, livingCost, monthlySavings);
 }
 
-// 系統啟動與事件綁定
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('custom-allowances-container');
     if (container.children.length === 0) {
-        addCustomAllowance(); // 預設新增一筆
+        addCustomAllowance(); 
     }
     
-    // 綁定輸入事件以即時更新
     document.querySelectorAll('#input-parameters input, #input-parameters select').forEach(element => {
         element.addEventListener('change', runSimulation);
         element.addEventListener('input', runSimulation);
