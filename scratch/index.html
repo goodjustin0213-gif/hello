@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 - 極簡自訂版 (修正版)</title>
+    <title>軍人職涯薪資規劃決策支援系統 - 極簡自訂版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -124,8 +124,10 @@
         };
 
         const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
+        
         // 【已修改】志願役人員固定加給 (NT$15,000)
-        const VOLUNTEER_ADDITION_2026 = 15000; 
+        const VOLUNTEER_ADDITION_2026 = 15000;
+        
         // 國軍退撫基金提撥率 (假設 14%，其中個人負擔 35%)
         const PENSION_RATE = 0.14; 
         const INDIVIDUAL_PENSION_RATIO = 0.35; // 個人負擔總提撥率的 35% (約 4.9%)
@@ -196,6 +198,7 @@
             const pensionBase = data.base + data.pro_add;
             
             // 2. 稅前總收入 (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 自訂加給總和)
+            // 使用更新後的 VOLUNTEER_ADDITION_2026 (15000)
             let monthlyTotal = pensionBase + data.food_add + VOLUNTEER_ADDITION_2026 + customAdd;
             
             // 3. 考慮年度基礎成長 (提撥前先成長)
@@ -288,7 +291,6 @@
             
             const baseAsset = calcScenarioAsset(baseRate);
             const lowAsset = calcScenarioAsset(lowRate);
-            // 修正: 將錯誤的 highAsset 改為正確的 highRate
             const highAsset = calcScenarioAsset(highRate); 
 
             const ctx = document.getElementById('scenarioChart').getContext('2d');
