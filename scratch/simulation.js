@@ -1,13 +1,13 @@
 // =========================================================
-// MOCK DATA: 國軍軍官薪資結構
+// DATA SOURCE: 114年1月1日生效 志願役現役軍人俸額表
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
-    'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
-    'S3': { rank: '中尉', base: 28000, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
-    'S4': { rank: '上尉', base: 31000, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
-    'M1': { rank: '少校', base: 38000, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-    'M2': { rank: '中校', base: 45000, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-    'M3': { rank: '上校', base: 52000, pro_add: 65000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
+    'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
+    'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
+    'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
+    'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
+    'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
+    'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
 };
 
 const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
@@ -27,7 +27,7 @@ let allowanceCounter = 0; // 用於追蹤自訂加給項目的 ID
 
 function formatCurrency(number) {
     if (isNaN(number) || number === 0) return '--';
-    // 優化：處理負數顯示 (例如透支時)
+    // 處理負數顯示 (例如透支時)
     const absNum = Math.abs(Math.round(number));
     const sign = number < 0 ? "-" : "";
     return `${sign}NT$ ${absNum.toLocaleString('zh-TW')}`;
@@ -154,7 +154,6 @@ function renderFinancialChart(years, salaryData, assetData) {
     });
 }
 
-// 修改：接收 monthlySavings (固定金額) 而非 savingsRate
 function renderScenarioChart(years, baseSalaryData, livingCost, monthlySavings) {
     if (scenarioChartInstance) scenarioChartInstance.destroy();
 
@@ -302,7 +301,6 @@ function runSimulation() {
     
     // 4. 繪製圖表
     renderFinancialChart(years, monthlySalaryData, totalAssetData);
-    // 修改：傳入 monthlySavings
     renderScenarioChart(years, monthlySalaryData, livingCost, monthlySavings);
 }
 
