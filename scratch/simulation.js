@@ -12,7 +12,7 @@ const REAL_SALARY_STRUCTURE = {
 
 const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
 
-// 【已修改】志願役人員固定加給 (NT$15,000)
+// 志願役人員固定加給 (NT$15,000)
 const VOLUNTEER_ADDITION_2026 = 15000;
 
 // 國軍退撫基金提撥率 (假設 14%，其中個人負擔 35%)
@@ -27,7 +27,10 @@ let allowanceCounter = 0; // 用於追蹤自訂加給項目的 ID
 
 function formatCurrency(number) {
     if (isNaN(number) || number === 0) return '--';
-    return `NT$ ${Math.round(number).toLocaleString('zh-TW')}`;
+    // 優化：處理負數顯示 (例如透支時)
+    const absNum = Math.abs(Math.round(number));
+    const sign = number < 0 ? "-" : "";
+    return `${sign}NT$ ${absNum.toLocaleString('zh-TW')}`;
 }
 
 /**
@@ -151,7 +154,8 @@ function renderFinancialChart(years, salaryData, assetData) {
     });
 }
 
-function renderScenarioChart(years, baseSalaryData, livingCost, savingsRate) {
+// 修改：接收 monthlySavings (固定金額) 而非 savingsRate
+function renderScenarioChart(years, baseSalaryData, livingCost, monthlySavings) {
     if (scenarioChartInstance) scenarioChartInstance.destroy();
 
     const lowRate = 0.02; 
@@ -163,11 +167,8 @@ function renderScenarioChart(years, baseSalaryData, livingCost, savingsRate) {
         const data = [];
         
         for (let i = 0; i < baseSalaryData.length; i++) {
-            const monthlySalary = baseSalaryData[i];
-            const annualSalary = monthlySalary * 12;
-            const annualLivingCost = livingCost * 12;
-            const annualNetIncome = Math.max(0, annualSalary - annualLivingCost); 
-            const annualSavingsInvestment = annualNetIncome * savingsRate;
+            // 固定儲蓄模式下，資產累積只看固定投入的錢 + 複利
+            const annualSavingsInvestment = monthlySavings * 12;
             
             asset = asset * (1 + rate) + annualSavingsInvestment;
             data.push(asset);
@@ -225,7 +226,10 @@ function runSimulation() {
     // 1. 取得使用者輸入參數
     const targetRank = document.getElementById('targetRank').value;
     const serviceYears = parseInt(document.getElementById('serviceYears').value) || 0;
-    const savingsRate = parseFloat(document.getElementById('savingsRate').value) / 100 || 0;
+    
+    // 修改：取得固定儲蓄金額 (Monthly Savings Amount)
+    const monthlySavings = parseInt(document.getElementById('monthlySavings').value) || 0;
+    
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
@@ -274,11 +278,13 @@ function runSimulation() {
         // 財務計算
         const annualSalary = monthlySalary * 12;
         const annualLivingCost = livingCost * 12;
+        const annualNetIncome = annualSalary - annualLivingCost; // 這裡不設為0，允許計算出負的現金流以示警
         
-        const annualNetIncome = Math.max(0, annualSalary - annualLivingCost); 
+        // 修改：固定儲蓄金額制
+        const annualSavingsInvestment = monthlySavings * 12;
         
-        const annualSavingsInvestment = annualNetIncome * savingsRate;
-        const annualRemainingCash = annualNetIncome * (1 - savingsRate);
+        // 剩餘現金 = 淨收入 - 固定投資
+        const annualRemainingCash = annualNetIncome - annualSavingsInvestment;
         
         totalCashFlow += annualRemainingCash;
         currentAsset = currentAsset * (1 + returnRate) + annualSavingsInvestment;
@@ -296,7 +302,8 @@ function runSimulation() {
     
     // 4. 繪製圖表
     renderFinancialChart(years, monthlySalaryData, totalAssetData);
-    renderScenarioChart(years, monthlySalaryData, livingCost, savingsRate);
+    // 修改：傳入 monthlySavings
+    renderScenarioChart(years, monthlySalaryData, livingCost, monthlySavings);
 }
 
 // 系統啟動時的初始化
