@@ -1,5 +1,5 @@
 // =========================================================
-// MOCK DATA: 國軍軍官薪資結構 (請替換為真實數據)
+// MOCK DATA: 國軍軍官薪資結構
 // =========================================================
 const REAL_SALARY_STRUCTURE = {
     'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
@@ -11,8 +11,10 @@ const REAL_SALARY_STRUCTURE = {
 };
 
 const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
+
 // 【已修改】志願役人員固定加給 (NT$15,000)
-const VOLUNTEER_ADDITION_2026 = 15000; 
+const VOLUNTEER_ADDITION_2026 = 15000;
+
 // 國軍退撫基金提撥率 (假設 14%，其中個人負擔 35%)
 const PENSION_RATE = 0.14; 
 const INDIVIDUAL_PENSION_RATIO = 0.35; // 個人負擔總提撥率的 35% (約 4.9%)
@@ -175,7 +177,6 @@ function renderScenarioChart(years, baseSalaryData, livingCost, savingsRate) {
     
     const baseAsset = calcScenarioAsset(baseRate);
     const lowAsset = calcScenarioAsset(lowRate);
-    // 修正: 將錯誤的 highAsset 改為正確的 highRate
     const highAsset = calcScenarioAsset(highRate); 
 
     const ctx = document.getElementById('scenarioChart').getContext('2d');
