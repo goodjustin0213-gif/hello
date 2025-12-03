@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 - 金額制自訂版</title>
+    <title>軍人職涯薪資規劃決策支援系統 - 2025年新制版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -23,7 +23,7 @@
 <body>
     <header class="bg-indigo-800 text-white p-4 shadow-lg sticky top-0 z-10">
         <h1 class="text-2xl font-extrabold tracking-wide">🚀 軍人職涯財務決策支援系統</h1>
-        <p class="text-indigo-200 text-sm mt-1">定額儲蓄版：請自行填寫所有額外加給與固定投資金額。</p>
+        <p class="text-indigo-200 text-sm mt-1">2025新制版：已更新 114 年生效俸額表，採用定額儲蓄制。</p>
     </header>
 
     <main class="flex flex-col lg:flex-row min-h-screen">
@@ -95,7 +95,7 @@
                 <div class="bg-white p-5 rounded-lg shadow-md border-t-4 border-orange-500">
                     <p class="text-sm text-gray-500">服役期間平均月淨現金流</p>
                     <p id="avg-cashflow" class="text-3xl font-extrabold text-orange-800 mt-1">--</p>
-                    <p class="text-xs text-gray-400 mt-1">扣除支出與固定投資後的餘裕</p>
+                    <p class="text-xs text-gray-400 mt-1">扣除支出與固定投資後的餘裕 (負數代表透支)</p>
                 </div>
             </div>
 
@@ -114,15 +114,15 @@
     
     <script>
         // =========================================================
-        // MOCK DATA: 國軍軍官薪資結構
+        // DATA SOURCE: 114年1月1日生效 志願役現役軍人俸額表 
         // =========================================================
         const REAL_SALARY_STRUCTURE = {
-            'S2': { rank: '少尉', base: 26000, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
-            'S3': { rank: '中尉', base: 28000, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
-            'S4': { rank: '上尉', base: 31000, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
-            'M1': { rank: '少校', base: 38000, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-            'M2': { rank: '中校', base: 45000, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-            'M3': { rank: '上校', base: 52000, pro_add: 65000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
+            'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
+            'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
+            'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
+            'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
+            'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
+            'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.015 },
         };
 
         const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
@@ -142,7 +142,7 @@
 
         function formatCurrency(number) {
             if (isNaN(number) || number === 0) return '--';
-            // 處理負數顯示
+            // 處理負數顯示 (例如透支時)
             const absNum = Math.abs(Math.round(number));
             const sign = number < 0 ? "-" : "";
             return `${sign}NT$ ${absNum.toLocaleString('zh-TW')}`;
@@ -269,7 +269,6 @@
             });
         }
 
-        // 修改：接收 monthlySavings (固定金額) 而非 savingsRate
         function renderScenarioChart(years, baseSalaryData, livingCost, monthlySavings) {
             if (scenarioChartInstance) scenarioChartInstance.destroy();
 
@@ -342,7 +341,7 @@
             const targetRank = document.getElementById('targetRank').value;
             const serviceYears = parseInt(document.getElementById('serviceYears').value) || 0;
             
-            // 修改：取得固定儲蓄金額 (Monthly Savings Amount)
+            // 取得固定儲蓄金額 (Monthly Savings Amount)
             const monthlySavings = parseInt(document.getElementById('monthlySavings').value) || 0;
             
             const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
@@ -395,7 +394,7 @@
                 const annualLivingCost = livingCost * 12;
                 const annualNetIncome = annualSalary - annualLivingCost; // 這裡不設為0，允許計算出負的現金流以示警
                 
-                // 修改：固定儲蓄金額制
+                // 固定儲蓄金額制
                 const annualSavingsInvestment = monthlySavings * 12;
                 
                 // 剩餘現金 = 淨收入 - 固定投資
@@ -417,7 +416,6 @@
             
             // 4. 繪製圖表
             renderFinancialChart(years, monthlySalaryData, totalAssetData);
-            // 修改：傳入 monthlySavings
             renderScenarioChart(years, monthlySalaryData, livingCost, monthlySavings);
         }
 
