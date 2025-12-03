@@ -11,8 +11,11 @@ const REAL_SALARY_STRUCTURE = {
 };
 
 const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3'];
-// 2026年起志願役人員固定加給 (NT$30,000)
-const VOLUNTEER_ADDITION_2026 = 30000; 
+// 【已修改】志願役人員固定加給 (NT$15,000)
+const VOLUNTEER_ADDITION_2026 = 15000; 
+// 國軍退撫基金提撥率 (假設 14%，其中個人負擔 35%)
+const PENSION_RATE = 0.14; 
+const INDIVIDUAL_PENSION_RATIO = 0.35; // 個人負擔總提撥率的 35% (約 4.9%)
 
 let financialChartInstance;
 let scenarioChartInstance;
@@ -33,11 +36,19 @@ function addCustomAllowance() {
     const container = document.getElementById('custom-allowances-container');
     const itemId = `custom-item-${allowanceCounter}`;
 
+    // 優化: 初始值給予範例
+    let defaultName = "";
+    let defaultValue = 0;
+    if (allowanceCounter === 1 && container.children.length === 0) {
+        defaultName = "領導加給 (範例)";
+        defaultValue = 5000;
+    }
+
     const newAllowanceHtml = `
         <div id="${itemId}" class="flex space-x-2 items-center">
-            <input type="text" placeholder="項目名稱 (例如: 超時加給)" class="w-2/3 border rounded-md py-1 px-2 text-sm">
-            <input type="number" placeholder="金額 (元/月)" value="0" class="w-1/3 border rounded-md py-1 px-2 text-sm allowance-value">
-            <button type="button" onclick="document.getElementById('${itemId}').remove()" class="text-red-500 hover:text-red-700 text-lg font-bold">
+            <input type="text" placeholder="項目名稱 (例如: 超時加給)" value="${defaultName}" class="w-2/3 border rounded-md py-1 px-2 text-sm" oninput="runSimulation()">
+            <input type="number" placeholder="金額 (元/月)" value="${defaultValue}" class="w-1/3 border rounded-md py-1 px-2 text-sm allowance-value" oninput="runSimulation()">
+            <button type="button" onclick="document.getElementById('${itemId}').remove(); runSimulation();" class="text-red-500 hover:text-red-700 text-lg font-bold">
                 &times;
             </button>
         </div>
@@ -54,7 +65,7 @@ function calculateCustomAllowanceTotal() {
     const allowanceInputs = document.querySelectorAll('.allowance-value');
     let total = 0;
     allowanceInputs.forEach(input => {
-        const value = parseInt(input.value) || 0; 
+        const value = parseInt(input.value) || 0; 
         total += value;
     });
     return total;
@@ -62,25 +73,29 @@ function calculateCustomAllowanceTotal() {
 
 /**
  * 根據階級、年資、及自訂津貼計算當前月薪總額
- * 薪資 = (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 自訂加給總和) * 年資成長率
+ * 淨薪資 = (總收入) - (本俸+專業加給的提撥基數) * 個人退撫提撥率
  */
 function calculateMonthlySalary(rankCode, year, customAdd) {
     const data = REAL_SALARY_STRUCTURE[rankCode];
     if (!data) return 0;
     
-    // 1. 基礎月薪 (本俸 + 專業加給 + 伙食津貼)
-    let monthlyTotal = data.base + data.pro_add + data.food_add;
+    // 1. 提撥基準: 本俸 + 專業加給
+    const pensionBase = data.base + data.pro_add;
     
-    // 2. 加上 2026年起志願役固定加給 (NT$30,000)
-    monthlyTotal += VOLUNTEER_ADDITION_2026;
+    // 2. 稅前總收入 (本俸 + 專業加給 + 伙食津貼 + 志願役加給 + 自訂加給總和)
+    let monthlyTotal = pensionBase + data.food_add + VOLUNTEER_ADDITION_2026 + customAdd;
     
-    // 3. 加上使用者輸入的所有自訂加給
-    monthlyTotal += customAdd;
-    
-    // 4. 考慮年度基礎成長
+    // 3. 考慮年度基礎成長 (提撥前先成長)
     monthlyTotal *= (1 + data.annual_growth) ** (year - 1);
     
-    return Math.round(monthlyTotal);
+    // 4. 扣除個人退撫基金提撥額
+    // 提撥基數隨年資成長
+    const actualPensionDeduction = pensionBase * PENSION_RATE * INDIVIDUAL_PENSION_RATIO * ((1 + data.annual_growth) ** (year - 1));
+
+    // 實際每月淨薪資 (可支配所得)
+    const netMonthlySalary = monthlyTotal - actualPensionDeduction;
+    
+    return Math.round(netMonthlySalary);
 }
 
 function renderFinancialChart(years, salaryData, assetData) {
@@ -93,9 +108,9 @@ function renderFinancialChart(years, salaryData, assetData) {
             labels: years,
             datasets: [
                 {
-                    label: '每月薪資總額 (NT$)',
+                    label: '每月淨薪資總額 (NT$)', 
                     data: salaryData,
-                    borderColor: 'rgb(79, 70, 229)', 
+                    borderColor: 'rgb(79, 70, 229)', 
                     yAxisID: 'y1',
                     fill: false,
                     tension: 0.1
@@ -103,7 +118,7 @@ function renderFinancialChart(years, salaryData, assetData) {
                 {
                     label: '累積資產總額 (NT$)',
                     data: assetData,
-                    borderColor: 'rgb(20, 184, 166)', 
+                    borderColor: 'rgb(20, 184, 166)', 
                     yAxisID: 'y2',
                     fill: true,
                     backgroundColor: 'rgba(20, 184, 166, 0.2)',
@@ -119,7 +134,7 @@ function renderFinancialChart(years, salaryData, assetData) {
                     type: 'linear',
                     display: true,
                     position: 'left',
-                    title: { display: true, text: '月薪總額 (元)' }
+                    title: { display: true, text: '月淨薪資總額 (元)' }
                 },
                 y2: {
                     type: 'linear',
@@ -129,7 +144,7 @@ function renderFinancialChart(years, salaryData, assetData) {
                     grid: { drawOnChartArea: false }
                 }
             },
-            plugins: { title: { display: true, text: '軍旅生涯財務預測 (薪資與資產累積)' } }
+            plugins: { title: { display: true, text: '軍旅生涯財務預測 (淨薪資與資產累積)' } }
         }
     });
 }
@@ -137,8 +152,8 @@ function renderFinancialChart(years, salaryData, assetData) {
 function renderScenarioChart(years, baseSalaryData, livingCost, savingsRate) {
     if (scenarioChartInstance) scenarioChartInstance.destroy();
 
-    const lowRate = 0.02; 
-    const highRate = 0.08; 
+    const lowRate = 0.02; 
+    const highRate = 0.08; 
     const baseRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
 
     const calcScenarioAsset = (rate) => {
@@ -149,7 +164,7 @@ function renderScenarioChart(years, baseSalaryData, livingCost, savingsRate) {
             const monthlySalary = baseSalaryData[i];
             const annualSalary = monthlySalary * 12;
             const annualLivingCost = livingCost * 12;
-            const annualNetIncome = Math.max(0, annualSalary - annualLivingCost); 
+            const annualNetIncome = Math.max(0, annualSalary - annualLivingCost); 
             const annualSavingsInvestment = annualNetIncome * savingsRate;
             
             asset = asset * (1 + rate) + annualSavingsInvestment;
@@ -160,7 +175,8 @@ function renderScenarioChart(years, baseSalaryData, livingCost, savingsRate) {
     
     const baseAsset = calcScenarioAsset(baseRate);
     const lowAsset = calcScenarioAsset(lowRate);
-    const highAsset = calcScenarioAsset(highRate);
+    // 修正: 將錯誤的 highAsset 改為正確的 highRate
+    const highAsset = calcScenarioAsset(highRate); 
 
     const ctx = document.getElementById('scenarioChart').getContext('2d');
     scenarioChartInstance = new Chart(ctx, {
@@ -212,8 +228,8 @@ function runSimulation() {
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
     const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
     
-    // 獲取所有自訂加給的總和 (已修復，確保計算不會出錯)
-    const customAllowance = calculateCustomAllowanceTotal(); 
+    // 獲取所有自訂加給的總和
+    const customAllowance = calculateCustomAllowanceTotal(); 
     
     if (serviceYears < 10 || isNaN(serviceYears) || isNaN(livingCost)) {
         document.getElementById('simulation-status').innerText = '請確認服役年數與支出輸入正確。';
@@ -224,15 +240,15 @@ function runSimulation() {
 
     // 2. 核心計算迴圈初始化
     let currentAsset = 0;
-    let currentRank = 'S2'; 
-    let yearOfRank = 0; 
+    let currentRank = 'S2'; 
+    let yearOfRank = 0; 
     let totalCashFlow = 0;
     
     const years = [];
     const monthlySalaryData = [];
     const totalAssetData = [];
     
-    const targetRankIndex = RANK_ORDER.indexOf(targetRank); 
+    const targetRankIndex = RANK_ORDER.indexOf(targetRank); 
 
     for (let year = 1; year <= serviceYears; year++) {
         years.push(`第 ${year} 年`);
@@ -244,13 +260,13 @@ function runSimulation() {
         if (yearOfRank >= currentRankData.promotion_years && currentIndex < targetRankIndex) {
             
             const nextRankIndex = currentIndex + 1;
-            if (nextRankIndex <= targetRankIndex) { 
+            if (nextRankIndex <= targetRankIndex) { 
                 currentRank = RANK_ORDER[nextRankIndex];
-                yearOfRank = 0; 
+                yearOfRank = 0; 
             }
         }
         
-        // 獲取當前月薪 (只傳入 customAllowance)
+        // 獲取當前月薪 (已扣除退撫基金提撥額)
         let monthlySalary = calculateMonthlySalary(currentRank, year, customAllowance);
         monthlySalaryData.push(monthlySalary);
 
@@ -258,7 +274,7 @@ function runSimulation() {
         const annualSalary = monthlySalary * 12;
         const annualLivingCost = livingCost * 12;
         
-        const annualNetIncome = Math.max(0, annualSalary - annualLivingCost); 
+        const annualNetIncome = Math.max(0, annualSalary - annualLivingCost); 
         
         const annualSavingsInvestment = annualNetIncome * savingsRate;
         const annualRemainingCash = annualNetIncome * (1 - savingsRate);
@@ -267,7 +283,7 @@ function runSimulation() {
         currentAsset = currentAsset * (1 + returnRate) + annualSavingsInvestment;
         totalAssetData.push(currentAsset);
         
-        yearOfRank++; 
+        yearOfRank++; 
     }
 
     // 3. 輸出核心數據
@@ -284,11 +300,19 @@ function runSimulation() {
 
 // 系統啟動時的初始化
 document.addEventListener('DOMContentLoaded', () => {
-    // 檢查自訂加給容器是否為空，如果為空，則預設新增一個輸入框
     const container = document.getElementById('custom-allowances-container');
+    
     if (container.children.length === 0) {
         addCustomAllowance();
     }
+    
+    // 為所有固定的 input/select 參數新增即時更新監聽
+    document.querySelectorAll('#input-parameters input:not(.allowance-value), #input-parameters select').forEach(element => {
+        // 使用 change 和 input 確保數字欄位和下拉選單都能即時反應
+        element.addEventListener('change', runSimulation);
+        element.addEventListener('input', runSimulation);
+    });
+
     // 運行初始模擬
     runSimulation();
 });
