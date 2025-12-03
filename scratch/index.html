@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 - 將官與時程加給版</title>
+    <title>軍人職涯薪資規劃決策支援系統 - 2025新制將官版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -22,7 +22,7 @@
 <body>
     <header class="bg-indigo-900 text-white p-4 shadow-lg sticky top-0 z-10">
         <h1 class="text-2xl font-extrabold tracking-wide">🚀 軍人職涯財務決策支援系統</h1>
-        <p class="text-indigo-200 text-sm mt-1">進階版：支援將官階級與階段性加給設定</p>
+        <p class="text-indigo-200 text-sm mt-1">2025新制版：支援將官階級、階段性加給、定額儲蓄制 (含法規快速晉升參數)</p>
     </header>
 
     <main class="flex flex-col lg:flex-row min-h-screen">
@@ -45,7 +45,7 @@
                     <option value="G3" class="text-red-600 font-bold">二級上將 (G3)</option>
                 </select>
                 
-                <label for="serviceYears" class="block text-sm font-medium text-gray-600 mt-3">預計服役總年數 (10-35年)</label>
+                <label for="serviceYears" class="block text-sm font-medium text-gray-600 mt-3">預計服役總年數 (10-40年)</label>
                 <input type="number" id="serviceYears" value="25" min="10" max="40" class="mt-1 block w-full border rounded-md py-2 px-3">
             </div>
 
@@ -123,17 +123,22 @@
     
     <script>
         // =========================================================
-        // DATA SOURCE: 114年1月1日生效 志願役現役軍人俸額表
+        // DATA SOURCE: 
+        [cite_start]// 1. 薪資: 114年1月1日生效 志願役現役軍人俸額表 [cite: 2]
+        [cite_start]// 2. 停年: 陸海空軍軍官士官任官條例第6條 (採最快晉升標準) [cite: 2]
         // =========================================================
-        // 註：將級軍官資料引用自 ，專業加給因資料缺乏暫以預估值設定
         const REAL_SALARY_STRUCTURE = {
-            'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 },
-            'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 },
-            'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 7, annual_growth: 0.015 },
-            'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-            'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 },
-            'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 }, // 修改上校最快6年
-            // 新增將官階級 (本俸來源: Source 2，專業加給: 預估)
+            // 【尉官】依據法規第6條 (快速晉升版)
+            [cite_start]'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 1, annual_growth: 0.015 }, // 法規: 1-2年，採1年 [cite: 2]
+            [cite_start]'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 3, annual_growth: 0.015 }, // 法規: 3年 [cite: 2]
+            [cite_start]'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 }, // 法規: 4年 [cite: 2]
+            
+            // 【校官】依據法規第6條
+            [cite_start]'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 }, // 法規: 4年 [cite: 2]
+            [cite_start]'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 4, annual_growth: 0.015 }, // 法規: 4年 [cite: 2]
+            'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: 6, annual_growth: 0.015 }, // 實務通常6年
+            
+            [cite_start]// 【將官】本俸依據114年俸額表 [cite: 2]
             'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, promotion_years: 4, annual_growth: 0.01 },
             'G2': { rank: '中將', base: 53390, pro_add: 80000, food_add: 2840, promotion_years: 3, annual_growth: 0.01 },
             'G3': { rank: '二級上將', base: 109520, pro_add: 90000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.01 }
@@ -204,7 +209,6 @@
                     </div>
                 </div>
             `;
-            // 使用 insertAdjacentHTML 避免破壞現有輸入框的狀態
             container.insertAdjacentHTML('beforeend', newAllowanceHtml);
         }
 
@@ -301,6 +305,7 @@
                 let asset = 0;
                 const data = [];
                 for (let i = 0; i < baseSalaryData.length; i++) {
+                    // 定額儲蓄制：每年固定存入 (monthlySavings * 12) + 複利
                     asset = asset * (1 + rate) + (monthlySavings * 12);
                     data.push(asset);
                 }
