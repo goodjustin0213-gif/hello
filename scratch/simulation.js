@@ -28,14 +28,14 @@ let allowanceCounter = 0;
 // 2. UI 互動與輔助功能
 // =========================================================
 
-// 格式化金額 (例如: $1,234,567)
+// 格式化金額
 function formatMoney(num) {
     if (isNaN(num)) return '--';
     const sign = num < 0 ? "-" : "";
     return `${sign}$${Math.abs(Math.round(num)).toLocaleString()}`;
 }
 
-// 滑桿與輸入框同步 (投資報酬率)
+// 滑桿與輸入框同步
 function syncSlider(val) {
     document.getElementById('returnRateSlider').value = val;
     runSimulation();
@@ -51,7 +51,6 @@ function addCustomAllowance() {
     const container = document.getElementById('custom-allowances-container');
     const id = `allowance-${allowanceCounter}`;
     
-    // 預設範例值
     let defName = "職務加給", defVal = 5000, defStart = 5, defEnd = 10;
     if (allowanceCounter === 1) { defName = "外島加給"; defVal = 9790; defStart = 1; defEnd = 3; }
 
@@ -77,28 +76,26 @@ function addCustomAllowance() {
 }
 
 // =========================================================
-// 3. 核心模擬引擎
+// 3. 核心模擬引擎 (含通膨與延伸邏輯)
 // =========================================================
 function runSimulation() {
-    // --- A. 讀取參數 ---
+    // --- A. 讀取輸入參數 ---
     const targetRank = document.getElementById('targetRank').value;
     const serviceYears = parseInt(document.getElementById('serviceYears').value) || 20;
-    
-    // 生活與投資
-    const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
-    const bonusMonths = parseFloat(document.getElementById('totalBonusMonths').value) || 0;
     const monthlyInvest = parseInt(document.getElementById('monthlyInvest').value) || 0;
     const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
+    const livingCostBase = parseInt(document.getElementById('livingCost').value) || 0;
+    const inflationRate = parseFloat(document.getElementById('inflationRate').value) / 100 || 0; // 通膨率
+    const bonusMonths = parseFloat(document.getElementById('totalBonusMonths').value) || 0;
 
     // 房貸參數
     const housePrice = parseInt(document.getElementById('housePriceWan').value) * 10000 || 0;
     const downPayPct = parseFloat(document.getElementById('downPaymentPercent').value) / 100 || 0;
     const mortgageRate = parseFloat(document.getElementById('mortgageRate').value) / 100 || 0;
+    const loanYears = parseInt(document.getElementById('loanYears').value) || 30; // 預設30年
     const buyYear = parseInt(document.getElementById('buyHouseYear').value) || 999;
-    const loanYears = 30; // 固定 30 年房貸
 
-    // --- B. 計算房貸 (本息均攤 PMT) ---
-    // Formula: P * [ r(1+r)^n / ((1+r)^n - 1) ]
+    // --- B. 計算 PMT 月付金 (本息平均攤還) ---
     const loanAmount = housePrice * (1 - downPayPct);
     const r_monthly = mortgageRate / 12;
     const n_months = loanYears * 12;
@@ -113,18 +110,13 @@ function runSimulation() {
     }
     monthlyMortgage = Math.round(monthlyMortgage);
 
-    // --- C. 年資模擬迴圈 ---
+    // --- C. 模擬初始化 ---
     let currentAsset = 0;
     let currentRank = 'S2';
     let yearOfRank = 0;
     let forceRetired = false;
     let retiredYear = 0;
-
-    const labels = [];
-    const salaryData = [];
-    const assetData = [];
-    const burdenData = [];
-
+    
     // 收集加給設定
     const allowances = [];
     document.querySelectorAll('#custom-allowances-container > div').forEach(row => {
@@ -135,39 +127,100 @@ function runSimulation() {
         });
     });
 
-    for (let year = 1; year <= serviceYears; year++) {
-        // 1. 強制退伍檢查
-        if (year > SALARY_DB[currentRank].max_years) {
-            forceRetired = true;
-            retiredYear = year - 1;
-            break;
-        }
+    // 決定模擬總長度：至少跑完服役年，若有房貸，則跑到房貸還完的那一年
+    const mortgageEndYear = buyYear + loanYears - 1;
+    const maxSimulationYear = Math.max(serviceYears, mortgageEndYear + 1); 
 
-        // 2. 晉升邏輯
-        const rankIdx = RANK_ORDER.indexOf(currentRank);
-        const targetIdx = RANK_ORDER.indexOf(targetRank);
-        if (yearOfRank >= SALARY_DB[currentRank].promotion_years && rankIdx < targetIdx) {
-            currentRank = RANK_ORDER[rankIdx + 1];
-            yearOfRank = 0;
-        }
+    const labels = [];
+    const incomeData = [];
+    const assetData = [];
+    const burdenData = [];
 
-        // 3. 薪資計算 (含俸級成長)
-        const rankData = SALARY_DB[currentRank];
-        const growth = Math.pow(1 + rankData.annual_growth, year - 1);
-        const baseWage = (rankData.base + rankData.pro_add) * growth;
+    // --- D. 預先計算退休金 ---
+    // 先跑一次虛擬晉升來決定最後的退休金基準
+    let tempRank = 'S2';
+    let tempYOR = 0;
+    let finalBase = 0;
+    for(let y=1; y<=serviceYears; y++) {
+        if (y > SALARY_DB[tempRank].max_years) break; // 模擬強制退伍
+        let rIdx = RANK_ORDER.indexOf(tempRank);
+        let tIdx = RANK_ORDER.indexOf(targetRank);
+        if (tempYOR >= SALARY_DB[tempRank].promotion_years && rIdx < tIdx) {
+            tempRank = RANK_ORDER[rIdx + 1];
+            tempYOR = 0;
+        }
+        const rd = SALARY_DB[tempRank];
+        const g = Math.pow(1 + rd.annual_growth, y - 1);
+        finalBase = rd.base * g; 
+        tempYOR++;
+    }
+    
+    // 計算月退俸 (簡易公式)
+    let pension = 0;
+    if (serviceYears >= 20) {
+        const ratio = 0.55 + (serviceYears - 20) * 0.02; 
+        pension = Math.round(finalBase * 2 * Math.min(ratio, 0.95));
+    }
+
+    // --- E. 正式逐年模擬 (含退伍後) ---
+    for (let year = 1; year <= maxSimulationYear; year++) {
         
-        // 加給總和
-        let extra = 0;
-        allowances.forEach(a => { if (year >= a.start && year <= a.end) extra += a.val; });
+        // 1. 判斷身分 (服役中 vs 退伍後)
+        let isActiveDuty = year <= serviceYears;
+        let netMonthlyIncome = 0;
+        let annualIncomeTotal = 0;
 
-        const grossMonthly = baseWage + rankData.food_add + VOLUNTEER_ADDITION + extra;
-        const netMonthly = Math.round(grossMonthly * (1 - PENSION_DEDUCTION_RATE));
+        // 強制退伍檢查 (僅在服役期間檢查)
+        if (isActiveDuty) {
+            if (year > SALARY_DB[currentRank].max_years) {
+                forceRetired = true;
+                retiredYear = year - 1;
+                isActiveDuty = false; // 轉為退伍狀態
+            }
+        }
 
-        // 4. 年度收支計算
-        const annualBonus = Math.round(baseWage * bonusMonths);
-        let annualIncome = (netMonthly * 12) + annualBonus;
+        if (isActiveDuty) {
+            // --- 服役期間薪資計算 ---
+            // 晉升邏輯
+            const rankIdx = RANK_ORDER.indexOf(currentRank);
+            const targetIdx = RANK_ORDER.indexOf(targetRank);
+            if (yearOfRank >= SALARY_DB[currentRank].promotion_years && rankIdx < targetIdx) {
+                currentRank = RANK_ORDER[rankIdx + 1];
+                yearOfRank = 0;
+            }
 
-        // 房貸支出判斷
+            const rankData = SALARY_DB[currentRank];
+            const growth = Math.pow(1 + rankData.annual_growth, year - 1);
+            const baseWage = (rankData.base + rankData.pro_add) * growth;
+            
+            let extra = 0;
+            allowances.forEach(a => { if (year >= a.start && year <= a.end) extra += a.val; });
+
+            const grossMonthly = baseWage + rankData.food_add + VOLUNTEER_ADDITION + extra;
+            netMonthlyIncome = Math.round(grossMonthly * (1 - PENSION_DEDUCTION_RATE));
+            const annualBonus = Math.round(baseWage * bonusMonths);
+            annualIncomeTotal = (netMonthlyIncome * 12) + annualBonus;
+            yearOfRank++;
+
+        } else {
+            // --- 退伍後：領退休金 ---
+            if (serviceYears >= 20 && !forceRetired) {
+                netMonthlyIncome = pension; // 領終身俸
+            } else if (forceRetired && retiredYear >= 20) {
+                 netMonthlyIncome = pension; // 強制退伍但滿20年
+            } else {
+                netMonthlyIncome = 0; // 無終身俸 (假設無其他收入)
+            }
+            annualIncomeTotal = netMonthlyIncome * 12;
+        }
+
+        // 2. 支出計算 (含通膨)
+        // 生活費隨通膨每年增加
+        const inflationFactor = Math.pow(1 + inflationRate, year - 1);
+        const currentYearLivingCost = Math.round(livingCostBase * inflationFactor);
+        const annualExpense = currentYearLivingCost * 12;
+
+        // 房貸支出
         let yearMortgageCost = 0;
         let isPayingMortgage = false;
         if (year >= buyYear && year < (buyYear + loanYears)) {
@@ -178,51 +231,41 @@ function runSimulation() {
         // 扣除頭期款 (購屋當年)
         if (year === buyYear) currentAsset -= (housePrice * downPayPct);
 
-        // 淨現金流 = 年收入 - 生活費 - 房貸 - 定期定額投資
-        const annualExpense = livingCost * 12;
+        // 3. 現金流與資產
         const fixedInvest = monthlyInvest * 12;
-        const netCashflow = annualIncome - annualExpense - yearMortgageCost - fixedInvest;
+        // 淨現金流
+        const netCashflow = annualIncomeTotal - annualExpense - yearMortgageCost - fixedInvest;
 
-        // 5. 資產複利運算
-        // 假設現金流在年底產生，僅本金與固定投資享受完整複利 (簡化模型)
+        // 複利滾存
         currentAsset = currentAsset * (1 + returnRate) + fixedInvest + netCashflow;
 
-        // 6. 數據記錄
-        labels.push(`第${year}年`);
-        salaryData.push(netMonthly);
+        // 4. 數據記錄
+        labels.push(`第${year}年${isActiveDuty ? '' : '(退)'}`);
+        incomeData.push(netMonthlyIncome);
         assetData.push(Math.round(currentAsset));
 
-        // 房貸負擔率 (房貸/月收入)
+        // 負擔率計算
         let burdenRate = 0;
         if (isPayingMortgage) {
-            burdenRate = (monthlyMortgage / (annualIncome/12)) * 100;
+            if (annualIncomeTotal > 0) {
+                burdenRate = (monthlyMortgage * 12 / annualIncomeTotal) * 100;
+            } else {
+                burdenRate = 100; // 無收入還有房貸
+            }
         }
         burdenData.push(burdenRate.toFixed(1));
-
-        yearOfRank++;
     }
 
-    // --- D. 終身俸試算 ---
-    let actualYears = forceRetired ? retiredYear : serviceYears;
-    let pension = 0;
-    if (actualYears >= 20) {
-        // 簡易新制公式：最後在職本俸 * 2 * (55% + 2% * (年資-20))
-        // 這裡假設本俸隨年資成長率增加
-        const finalBase = SALARY_DB[currentRank].base * Math.pow(1 + SALARY_DB[currentRank].annual_growth, actualYears - 1);
-        const ratio = 0.55 + (actualYears - 20) * 0.02; 
-        pension = Math.round(finalBase * 2 * Math.min(ratio, 0.95)); // 上限 95%
-    }
-
-    // --- E. 更新 UI 與報告 ---
-    updateDashboard(currentAsset, monthlyMortgage, pension, forceRetired, currentRank);
-    generateHealthReport(currentAsset, pension, burdenData, buyYear, housePrice, loanAmount, loanYears, actualYears);
-    renderCharts(labels, salaryData, assetData, burdenData);
+    // --- F. 輸出結果 ---
+    updateUI(currentAsset, monthlyMortgage, pension, forceRetired, currentRank, burdenData, serviceYears, buyYear, loanYears);
+    renderCharts(labels, incomeData, assetData, burdenData, serviceYears);
+    generateReport(currentAsset, pension, burdenData, buyYear, housePrice, loanAmount, loanYears, serviceYears, mortgageEndYear);
 }
 
 // =========================================================
-// 4. 更新儀表板與報告
+// 4. 更新 UI 與報告
 // =========================================================
-function updateDashboard(asset, mortgage, pension, forceRetired, rank) {
+function updateUI(asset, mortgage, pension, forceRetired, rank, burdenData, serviceYears, buyYear, loanYears) {
     document.getElementById('total-asset').innerText = formatMoney(asset);
     document.getElementById('monthly-mortgage').innerText = formatMoney(mortgage);
     
@@ -236,118 +279,101 @@ function updateDashboard(asset, mortgage, pension, forceRetired, rank) {
     }
 
     const statusEl = document.getElementById('final-status');
-    if (forceRetired) {
-        statusEl.innerText = `強制退伍 (${SALARY_DB[rank].rank})`;
-        statusEl.className = "text-lg font-bold text-red-600 mt-2";
+    const mortgageEnd = buyYear + loanYears;
+    const yearsAfterRetire = mortgageEnd - serviceYears;
+    
+    if (yearsAfterRetire > 0) {
+        statusEl.innerHTML = `<span class="text-red-600">⚠️ 退伍後仍需繳 ${yearsAfterRetire} 年</span>`;
     } else {
-        statusEl.innerText = `光榮退伍 (${SALARY_DB[rank].rank})`;
-        statusEl.className = "text-lg font-bold text-blue-600 mt-2";
+        statusEl.innerHTML = `<span class="text-green-600">✅ 退伍前已還清</span>`;
     }
 }
 
-function generateHealthReport(asset, pension, burdenData, buyYear, housePrice, loanAmount, loanYears, actualYears) {
-    const maxBurden = Math.max(...burdenData);
-    
-    // 風險評估邏輯
-    let burdenAnalysis = "";
-    if (maxBurden > 50) burdenAnalysis = `<span class="text-red-600 font-bold">⚠️ 極高風險 (最高 ${maxBurden}%)</span>：房貸超過月薪一半，生活將非常拮据，建議增加頭期款或降低購屋預算。`;
-    else if (maxBurden > 30) burdenAnalysis = `<span class="text-orange-600 font-bold">⚠️ 負擔偏重 (最高 ${maxBurden}%)</span>：房貸佔比略高，需嚴格控管其他娛樂支出。`;
-    else if (maxBurden > 0) burdenAnalysis = `<span class="text-green-600 font-bold">✅ 安全範圍 (最高 ${maxBurden}%)</span>：財務結構健康，可輕鬆負擔。`;
-    else burdenAnalysis = `<span class="text-gray-500">無購屋計畫或全額付清。</span>`;
+function generateReport(asset, pension, burdenData, buyYear, housePrice, loanAmount, loanYears, serviceYears, mortgageEndYear) {
+    // 找出退伍後的負擔率最高點
+    let maxBurden = 0;
+    let postRetireBurden = 0;
+    burdenData.forEach((v, i) => {
+        const val = parseFloat(v);
+        if (val > maxBurden) maxBurden = val;
+        if ((i + 1) > serviceYears && val > postRetireBurden) postRetireBurden = val;
+    });
+
+    let advice = "";
+    if (postRetireBurden > 50) {
+        advice = `<span class="text-red-600 font-bold">🚨 危險警示：退伍後房貸壓力過大！</span><br>您退伍後的月退俸可能有超過一半都要拿去繳房貸。這會嚴重擠壓退休生活品質。建議：1. 延後退伍 2. 降低購屋預算 3. 提高頭期款。`;
+    } else if (postRetireBurden > 30) {
+        advice = `<span class="text-orange-600 font-bold">⚠️ 注意：退伍後手頭較緊</span><br>退伍後房貸佔月退俸比例偏高，建議服役期間多存錢，或使用部分退休金提前還款。`;
+    } else {
+        advice = `<span class="text-green-600 font-bold">✅ 安全：財務結構穩健</span><br>無論服役中或退伍後，您的收入都能輕鬆覆蓋房貸。`;
+    }
 
     const html = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <h4 class="font-bold text-blue-800 text-base mb-2 flex items-center gap-2">
-                    📊 資產與退休評估
-                </h4>
-                <ul class="list-disc list-inside space-y-2 text-gray-700">
-                    <li>您將服役 <strong>${actualYears}</strong> 年，預計累積資產為 <strong class="text-blue-700">${formatMoney(asset)}</strong>。</li>
-                    <li>${pension > 0 
-                        ? `恭喜！您符合終身俸資格，預估月退俸為 <strong class="text-green-700">${formatMoney(pension)}</strong>。這筆穩定的被動收入是軍旅生涯最大的紅利。` 
-                        : `<span class="text-red-500 font-bold">注意！服役未滿 20 年，無法領取終身俸。</span> 若這是您的長期目標，請重新規劃服役長度或晉升路徑。`}
-                    </li>
-                </ul>
-            </div>
-            <div class="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                <h4 class="font-bold text-orange-800 text-base mb-2 flex items-center gap-2">
-                    🏠 購屋能力診斷
-                </h4>
-                <ul class="list-disc list-inside space-y-2 text-gray-700">
-                    <li>預計於第 <strong>${buyYear}</strong> 年購入 <strong>${formatMoney(housePrice)}</strong> 房產。</li>
-                    <li>貸款總額 <strong>${formatMoney(loanAmount)}</strong>，分 <strong>${loanYears}</strong> 年償還。</li>
-                    <li><strong>房貸壓力評估：</strong>${burdenAnalysis}</li>
-                </ul>
-            </div>
+        <div class="space-y-4">
+            <p><strong>1. 資產狀況：</strong>模擬結束時（第 ${burdenData.length} 年），預估累積淨資產為 <strong>${formatMoney(asset)}</strong>。</p>
+            <p><strong>2. 房貸銜接：</strong>您預計在服役第 <strong>${buyYear}</strong> 年購屋，房貸將持續到第 <strong>${mortgageEndYear}</strong> 年。<br>這意味著 <span class="bg-yellow-100 px-1 rounded text-yellow-800 font-bold">退伍後，您仍需繳納房貸 ${Math.max(0, mortgageEndYear - serviceYears)} 年</span>。</p>
+            <p><strong>3. 專家建議：</strong>${advice}</p>
         </div>
     `;
     document.getElementById('analysis-report').innerHTML = html;
 }
 
 // =========================================================
-// 5. 圖表繪製
+// 5. 圖表繪製 (使用 Chart.js)
 // =========================================================
-function renderCharts(labels, salary, asset, burden) {
+function renderCharts(labels, income, asset, burden, serviceYears) {
     // 銷毀舊圖表
     if (chart1Instance) chart1Instance.destroy();
     if (chart2Instance) chart2Instance.destroy();
 
+    // 1. 資產趨勢圖
     const ctx1 = document.getElementById('financialChart').getContext('2d');
     chart1Instance = new Chart(ctx1, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [
-                { 
-                    label: '月淨薪資', 
-                    data: salary, 
-                    borderColor: '#3b82f6', 
-                    yAxisID: 'y', 
-                    tension: 0.1 
-                },
-                { 
-                    label: '累積資產', 
-                    data: asset, 
-                    borderColor: '#10b981', 
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-                    fill: true, 
-                    yAxisID: 'y1', 
-                    tension: 0.3 
-                }
+                { label: '月收入(薪資/退休金)', data: income, borderColor: '#3b82f6', yAxisID: 'y', tension: 0.1, pointRadius: 2 },
+                { label: '累積淨資產', data: asset, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, yAxisID: 'y1', tension: 0.3, pointRadius: 0 }
             ]
         },
         options: {
-            responsive: true, 
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            plugins: {
+                annotation: {
+                    annotations: {
+                        line1: { type: 'line', xMin: serviceYears - 0.5, xMax: serviceYears - 0.5, borderColor: 'gray', borderWidth: 2, borderDash: [5, 5], label: { display: true, content: '退伍', position: 'start' } }
+                    }
+                }
+            },
             scales: {
-                y: { type: 'linear', display: true, position: 'left', title: {display:true, text:'月薪'} },
-                y1: { type: 'linear', display: true, position: 'right', title: {display:true, text:'資產'} }
+                y: { type: 'linear', display: true, position: 'left', title: {display:true, text:'月收入'} },
+                y1: { type: 'linear', display: true, position: 'right', title: {display:true, text:'總資產'} }
             }
         }
     });
 
+    // 2. 房貸壓力圖
     const ctx2 = document.getElementById('burdenChart').getContext('2d');
     chart2Instance = new Chart(ctx2, {
         type: 'bar',
         data: {
             labels: labels,
-            datasets: [
-                { 
-                    label: '房貸負擔率 (%)', 
-                    data: burden, 
-                    backgroundColor: burden.map(v => v > 40 ? '#ef4444' : (v > 30 ? '#f97316' : '#22c55e'))
-                }
-            ]
+            datasets: [{ 
+                label: '房貸負擔率 (%)', 
+                data: burden, 
+                backgroundColor: burden.map(v => v > 50 ? '#ef4444' : (v > 30 ? '#f97316' : '#22c55e'))
+            }]
         },
         options: {
-            responsive: true, 
-            maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, max: 100, title: {display:true, text:'佔月薪比例 %'} } },
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, max: 100, title: {display:true, text:'佔月收入 %'} } },
             plugins: { 
                 annotation: { 
                     annotations: { 
-                        line1: { type: 'line', yMin: 30, yMax: 30, borderColor: 'orange', borderWidth: 2, borderDash: [5, 5] } 
+                        line1: { type: 'line', yMin: 30, yMax: 30, borderColor: 'orange', borderWidth: 2, borderDash: [5, 5], label: {content: '30%警戒', display: true} },
+                        line2: { type: 'line', xMin: serviceYears - 0.5, xMax: serviceYears - 0.5, borderColor: 'gray', borderWidth: 2, borderDash: [5, 5], label: { content: '退伍', display: true } }
                     } 
                 } 
             }
@@ -359,8 +385,7 @@ function renderCharts(labels, salary, asset, burden) {
 // 6. 系統初始化
 // =========================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 預設增加一個加給範例
-    addCustomAllowance();
+    addCustomAllowance(); // 預設增加一個加給範例
     
     // 為所有輸入框綁定事件以即時運算
     document.body.addEventListener('input', (e) => {
