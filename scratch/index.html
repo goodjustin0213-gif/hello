@@ -1,511 +1,375 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍官職涯財務模擬系統 V3.2 (圖表修復版)</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-    
-    <style>
-        body { background-color: #f3f4f6; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-        .scrollable-content { height: calc(100vh - 4rem); overflow-y: auto; }
-        
-        /* 輸入框樣式優化 */
-        input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-        
-        /* Slider 樣式 */
-        input[type=range] { -webkit-appearance: none; background: transparent; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #4f46e5; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #d1d5db; border-radius: 2px; }
+// =========================================================
+// 1. 核心資料庫 (114年/2025年 新制參數)
+// =========================================================
+const SALARY_DB = {
+    // 尉官 (依據法規最快晉升標準)
+    'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, annual_growth: 0.015, promotion_years: 1, max_years: 12 },
+    'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, annual_growth: 0.015, promotion_years: 3, max_years: 12 },
+    'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, annual_growth: 0.015, promotion_years: 4, max_years: 17 },
+    
+    // 校官
+    'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, annual_growth: 0.015, promotion_years: 4, max_years: 22 },
+    'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, annual_growth: 0.015, promotion_years: 4, max_years: 26 },
+    'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, annual_growth: 0.015, promotion_years: 6, max_years: 30 },
+    
+    // 將官 (少將)
+    'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, annual_growth: 0.01, promotion_years: 4, max_years: 35 }
+};
 
-        /* 列印模式 */
-        @media print {
-            aside, header, button { display: none !important; }
-            main { display: block !important; height: auto !important; }
-            section { width: 100% !important; padding: 0 !important; overflow: visible !important; }
-            .scrollable-content { height: auto !important; overflow: visible !important; }
-        }
-    </style>
-</head>
-<body class="overflow-hidden text-gray-800">
+const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'G1'];
+const VOLUNTEER_ADDITION = 15000;       // 志願役加給
+const PENSION_DEDUCTION_RATE = 0.049;   // 退撫自提約 4.9%
 
-    <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center z-20 relative h-16">
-        <h1 class="text-lg font-bold tracking-wide flex items-center gap-2">
-            🛡️ 軍官財務模擬
-            <span class="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">V3.2 Chart Fix</span>
-        </h1>
-        <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded text-white transition flex items-center gap-1">
-            🖨️ 列印報告
-        </button>
-    </header>
+// 全域變數
+let chart1Instance, chart2Instance;
+let allowanceCounter = 0;
 
-    <main class="flex flex-col lg:flex-row h-[calc(100vh-4rem)]">
-        
-        <aside class="w-full lg:w-[360px] bg-white border-r border-gray-200 shadow-xl overflow-y-auto scrollable-content z-10 print:hidden">
-            <div class="p-4 space-y-5">
-                
-                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 shadow-sm">
-                    <h3 class="font-bold text-blue-800 mb-3 text-sm flex items-center">
-                        <span class="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">1</span> 
-                        職涯與薪資
-                    </h3>
-                    <div class="grid grid-cols-2 gap-3 mb-2">
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">目標階級</label>
-                            <select id="targetRank" class="w-full border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                                <option value="S2">少尉 (S2)</option>
-                                <option value="S3">中尉 (S3)</option>
-                                <option value="S4">上尉 (S4)</option>
-                                <option value="M1">少校 (M1)</option>
-                                <option value="M2">中校 (M2)</option>
-                                <option value="M3" selected>上校 (M3)</option>
-                                <option value="G1">少將 (G1)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">服役年數</label>
-                            <input type="number" id="serviceYears" value="22" class="w-full border-gray-300 rounded-lg text-sm pl-2">
-                        </div>
-                    </div>
-                    <div id="custom-allowances-container" class="space-y-2"></div>
-                    <button onclick="addCustomAllowance()" class="w-full mt-2 bg-white border border-blue-200 text-blue-600 text-xs font-bold py-1.5 rounded-lg hover:bg-blue-50 border-dashed transition">
-                        + 新增加給
-                    </button>
-                </div>
+// =========================================================
+// 2. UI 互動與輔助功能
+// =========================================================
 
-                <div class="bg-teal-50 p-4 rounded-xl border border-teal-100 shadow-sm">
-                    <h3 class="font-bold text-teal-800 mb-3 text-sm flex items-center">
-                        <span class="bg-teal-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">2</span> 
-                        收入分配 (%)
-                    </h3>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between mb-1">
-                                <label class="text-[11px] font-bold text-gray-500 uppercase">生活支出佔比</label>
-                                <span id="living-val" class="text-xs font-bold text-teal-700">30%</span>
-                            </div>
-                            <input type="range" id="livingCostPercent" min="10" max="90" step="5" value="30" class="w-full h-2 bg-teal-200 rounded-lg appearance-none cursor-pointer" oninput="document.getElementById('living-val').innerText = this.value + '%'; runSimulation()">
-                        </div>
-                        <div>
-                            <div class="flex justify-between mb-1">
-                                <label class="text-[11px] font-bold text-gray-500 uppercase">月投資佔比</label>
-                                <span id="invest-val" class="text-xs font-bold text-teal-700">30%</span>
-                            </div>
-                            <input type="range" id="monthlyInvestPercent" min="0" max="80" step="5" value="30" class="w-full h-2 bg-teal-200 rounded-lg appearance-none cursor-pointer" oninput="document.getElementById('invest-val').innerText = this.value + '%'; runSimulation()">
-                        </div>
-                        <p class="text-[10px] text-gray-400">註：金額隨薪資成長動態調整。</p>
-                    </div>
-                </div>
+// 格式化金額 (例如: $1,234,567)
+function formatMoney(num) {
+    if (isNaN(num)) return '--';
+    const sign = num < 0 ? "-" : "";
+    return `${sign}$${Math.abs(Math.round(num)).toLocaleString()}`;
+}
 
-                <div class="bg-violet-50 p-4 rounded-xl border border-violet-100 shadow-sm mb-4">
-                    <h3 class="font-bold text-violet-800 mb-3 text-sm flex items-center">
-                        <span class="bg-violet-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">3</span> 
-                        投資報酬率
-                    </h3>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="text-[11px] font-bold text-gray-500 uppercase">年化報酬率</label>
-                        <div class="relative w-16">
-                            <input type="number" id="returnRate" value="6" step="0.5" class="w-full text-right border-none bg-transparent text-sm font-bold text-violet-700 p-0 focus:ring-0" oninput="syncSlider(this.value)">
-                            <span class="absolute right-0 top-0 text-sm font-bold text-violet-700">%</span>
-                        </div>
-                    </div>
-                    <input type="range" id="returnRateSlider" min="1" max="15" step="0.5" value="6" class="w-full h-2 bg-violet-200 rounded-lg appearance-none cursor-pointer" oninput="syncInput(this.value)">
-                </div>
+// 滑桿與輸入框同步 (投資報酬率)
+function syncSlider(val) {
+    document.getElementById('returnRateSlider').value = val;
+    runSimulation();
+}
+function syncInput(val) {
+    document.getElementById('returnRate').value = val;
+    runSimulation();
+}
 
-                <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm">
-                    <h3 class="font-bold text-orange-800 mb-3 text-sm flex items-center">
-                        <span class="bg-orange-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">4</span> 
-                        購屋規劃
-                    </h3>
-                    <div class="grid grid-cols-2 gap-3 mb-2">
-                        <div><label class="block text-[10px] text-gray-500 mb-1">總價(萬)</label><input type="number" id="housePriceWan" value="1500" class="w-full border-orange-200 rounded text-sm py-1.5 px-2"></div>
-                        <div><label class="block text-[10px] text-gray-500 mb-1">自備(%)</label><input type="number" id="downPaymentPercent" value="20" class="w-full border-orange-200 rounded text-sm py-1.5 px-2"></div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div><label class="block text-[10px] text-gray-500 mb-1">利率(%)</label><input type="number" id="mortgageRate" value="2.2" step="0.1" class="w-full border-orange-200 rounded text-sm py-1.5 px-2"></div>
-                        <div><label class="block text-[10px] text-gray-500 mb-1">購屋年</label><input type="number" id="buyHouseYear" value="12" class="w-full border-orange-200 rounded text-sm py-1.5 px-2"></div>
-                    </div>
-                    <input type="hidden" id="loanYears" value="30">
-                </div>
+// 動態新增自訂加給
+function addCustomAllowance() {
+    allowanceCounter++;
+    const container = document.getElementById('custom-allowances-container');
+    const id = `allowance-${allowanceCounter}`;
+    
+    // 預設範例值
+    let defName = "職務加給", defVal = 5000, defStart = 5, defEnd = 10;
+    if (allowanceCounter === 1) { defName = "外島加給"; defVal = 9790; defStart = 1; defEnd = 3; }
 
-                <div class="pt-4 pb-8">
-                     <button onclick="runSimulation()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl shadow-lg transition text-sm flex justify-center items-center gap-2 transform active:scale-95 duration-100">
-                        <span>📊</span> 重新運算
-                    </button>
-                </div>
-            </div>
-        </aside>
+    const html = `
+        <div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-xs bg-gray-50 p-1 rounded border border-gray-100">
+            <div class="col-span-4">
+                <input type="text" value="${defName}" class="w-full border-none bg-transparent px-1 allow-name text-gray-600 font-bold focus:ring-0" placeholder="名稱" oninput="runSimulation()">
+            </div>
+            <div class="col-span-3">
+                <input type="number" value="${defVal}" class="w-full border rounded px-1 allow-value h-6 text-right" placeholder="$" oninput="runSimulation()">
+            </div>
+            <div class="col-span-2">
+                <input type="number" value="${defStart}" class="w-full border rounded px-1 text-center allow-start h-6" oninput="runSimulation()">
+            </div>
+            <div class="col-span-2">
+                <input type="number" value="${defEnd}" class="w-full border rounded px-1 text-center allow-end h-6" oninput="runSimulation()">
+            </div>
+            <div class="col-span-1 text-center">
+                <button onclick="document.getElementById('${id}').remove(); runSimulation()" class="text-red-400 hover:text-red-600 font-bold text-lg leading-none">&times;</button>
+            </div>
+        </div>`;
+    container.insertAdjacentHTML('beforeend', html);
+}
 
-        <section class="w-full lg:w-[calc(100%-360px)] bg-gray-50 p-6 scrollable-content">
-            
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
-                    <p class="text-xs text-gray-400 font-bold uppercase">預估累積總資產</p>
-                    <p id="total-asset" class="text-2xl font-black text-blue-900 mt-1">--</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-teal-500">
-                    <p class="text-xs text-gray-400 font-bold uppercase">平均月投資 (服役期)</p>
-                    <p id="avg-invest" class="text-2xl font-black text-teal-700 mt-1">--</p>
-                    <p class="text-[10px] text-gray-400">隨薪資浮動之平均值</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500">
-                    <p class="text-xs text-gray-400 font-bold uppercase">固定月房貸</p>
-                    <p id="monthly-mortgage" class="text-2xl font-black text-orange-700 mt-1">--</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-slate-500">
-                    <p class="text-xs text-gray-400 font-bold uppercase">退伍後狀態</p>
-                    <p id="final-status" class="text-lg font-bold text-slate-800 mt-2">--</p>
-                </div>
-            </div>
+// =========================================================
+// 3. 核心模擬引擎
+// =========================================================
+function runSimulation() {
+    // --- A. 讀取參數 ---
+    const targetRank = document.getElementById('targetRank').value;
+    const serviceYears = parseInt(document.getElementById('serviceYears').value) || 20;
+    
+    // 生活與投資
+    const livingCost = parseInt(document.getElementById('livingCost').value) || 0;
+    const bonusMonths = parseFloat(document.getElementById('totalBonusMonths').value) || 0;
+    const monthlyInvest = parseInt(document.getElementById('monthlyInvest').value) || 0;
+    const returnRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0;
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div class="bg-white p-5 rounded-xl shadow-sm print:break-inside-avoid">
-                    <h2 class="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <div class="w-2 h-6 bg-blue-500 rounded-full"></div>
-                        資產累積趨勢 (含退伍後)
-                    </h2>
-                    <div class="h-64 relative w-full">
-                        <canvas id="financialChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-xl shadow-sm print:break-inside-avoid">
-                    <h2 class="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <div class="w-2 h-6 bg-emerald-500 rounded-full"></div>
-                        每月現金流結構 (堆疊分析)
-                    </h2>
-                    <div class="h-64 relative w-full">
-                        <canvas id="cashflowChart"></canvas>
-                    </div>
-                </div>
-            </div>
+    // 房貸參數
+    const housePrice = parseInt(document.getElementById('housePriceWan').value) * 10000 || 0;
+    const downPayPct = parseFloat(document.getElementById('downPaymentPercent').value) / 100 || 0;
+    const mortgageRate = parseFloat(document.getElementById('mortgageRate').value) / 100 || 0;
+    const buyYear = parseInt(document.getElementById('buyHouseYear').value) || 999;
+    const loanYears = 30; // 固定 30 年房貸
 
-            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 print:break-inside-avoid">
-                <h2 class="text-lg font-bold text-slate-800 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
-                    📑 財務健康診斷書
-                </h2>
-                <div id="analysis-report" class="text-sm text-gray-600 space-y-4 leading-relaxed"></div>
-            </div>
+    // --- B. 計算房貸 (本息均攤 PMT) ---
+    // Formula: P * [ r(1+r)^n / ((1+r)^n - 1) ]
+    const loanAmount = housePrice * (1 - downPayPct);
+    const r_monthly = mortgageRate / 12;
+    const n_months = loanYears * 12;
+    let monthlyMortgage = 0;
+    
+    if (loanAmount > 0) {
+        if (mortgageRate > 0) {
+            monthlyMortgage = loanAmount * (r_monthly * Math.pow(1 + r_monthly, n_months)) / (Math.pow(1 + r_monthly, n_months) - 1);
+        } else {
+            monthlyMortgage = loanAmount / n_months;
+        }
+    }
+    monthlyMortgage = Math.round(monthlyMortgage);
 
-        </section>
-    </main>
-    
-    <script>
-        // =========================================================
-        // 0. 插件註冊檢查 (關鍵修復步驟)
-        // =========================================================
-        if (typeof Chart !== 'undefined') {
-            Chart.defaults.font.family = "'Segoe UI', 'Helvetica', 'Arial', sans-serif";
-            // 確保 Annotation 插件已註冊
-            if (window['chartjs-plugin-annotation']) {
-                Chart.register(window['chartjs-plugin-annotation']);
-            }
-        }
+    // --- C. 年資模擬迴圈 ---
+    let currentAsset = 0;
+    let currentRank = 'S2';
+    let yearOfRank = 0;
+    let forceRetired = false;
+    let retiredYear = 0;
 
-        // =========================================================
-        // 1. 資料庫
-        // =========================================================
-        const SALARY_DB = {
-            'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, annual_growth: 0.015, promotion_years: 1, max_years: 12 },
-            'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, annual_growth: 0.015, promotion_years: 3, max_years: 12 },
-            'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, annual_growth: 0.015, promotion_years: 4, max_years: 17 },
-            'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, annual_growth: 0.015, promotion_years: 4, max_years: 22 },
-            'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, annual_growth: 0.015, promotion_years: 4, max_years: 26 },
-            'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, annual_growth: 0.015, promotion_years: 6, max_years: 30 },
-            'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, annual_growth: 0.01, promotion_years: 4, max_years: 35 }
-        };
-        const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'G1'];
-        const VOLUNTEER_ADDITION = 15000;
-        const PENSION_DEDUCTION_RATE = 0.049;
+    const labels = [];
+    const salaryData = [];
+    const assetData = [];
+    const burdenData = [];
 
-        let chart1Instance = null;
-        let chart2Instance = null;
-        let allowanceCounter = 0;
+    // 收集加給設定
+    const allowances = [];
+    document.querySelectorAll('#custom-allowances-container > div').forEach(row => {
+        allowances.push({
+            val: parseInt(row.querySelector('.allow-value').value) || 0,
+            start: parseInt(row.querySelector('.allow-start').value) || 0,
+            end: parseInt(row.querySelector('.allow-end').value) || 99
+        });
+    });
 
-        // UI 函數
-        function syncSlider(val) { document.getElementById('returnRateSlider').value = val; runSimulation(); }
-        function syncInput(val) { document.getElementById('returnRate').value = val; runSimulation(); }
-        function formatMoney(num) {
-            if (isNaN(num)) return '$0';
-            const absVal = Math.abs(Math.round(num));
-            return num < 0 ? `-$${absVal.toLocaleString()}` : `$${absVal.toLocaleString()}`;
-        }
+    for (let year = 1; year <= serviceYears; year++) {
+        // 1. 強制退伍檢查
+        if (year > SALARY_DB[currentRank].max_years) {
+            forceRetired = true;
+            retiredYear = year - 1;
+            break;
+        }
 
-        function addCustomAllowance() {
-            allowanceCounter++;
-            const container = document.getElementById('custom-allowances-container');
-            const id = `allowance-${allowanceCounter}`;
-            let defName = "職務加給", defVal = 5000, defStart = 5, defEnd = 10;
-            if (allowanceCounter === 1) { defName = "外島加給"; defVal = 9790; defStart = 1; defEnd = 3; }
+        // 2. 晉升邏輯
+        const rankIdx = RANK_ORDER.indexOf(currentRank);
+        const targetIdx = RANK_ORDER.indexOf(targetRank);
+        if (yearOfRank >= SALARY_DB[currentRank].promotion_years && rankIdx < targetIdx) {
+            currentRank = RANK_ORDER[rankIdx + 1];
+            yearOfRank = 0;
+        }
 
-            const html = `
-                <div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-xs bg-gray-50 p-1 rounded border border-gray-100 animate-fade-in">
-                    <div class="col-span-4"><input type="text" value="${defName}" class="w-full border-none bg-transparent px-1 allow-name text-gray-600 font-bold" placeholder="名稱"></div>
-                    <div class="col-span-3"><input type="number" value="${defVal}" class="w-full border rounded px-1 allow-value h-6 text-right" placeholder="$"></div>
-                    <div class="col-span-2"><input type="number" value="${defStart}" class="w-full border rounded px-1 text-center allow-start h-6"></div>
-                    <div class="col-span-2"><input type="number" value="${defEnd}" class="w-full border rounded px-1 text-center allow-end h-6"></div>
-                    <div class="col-span-1 text-center"><button onclick="document.getElementById('${id}').remove(); runSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div>
-                </div>`;
-            container.insertAdjacentHTML('beforeend', html);
-            runSimulation();
-        }
+        // 3. 薪資計算 (含俸級成長)
+        const rankData = SALARY_DB[currentRank];
+        const growth = Math.pow(1 + rankData.annual_growth, year - 1);
+        const baseWage = (rankData.base + rankData.pro_add) * growth;
+        
+        // 加給總和
+        let extra = 0;
+        allowances.forEach(a => { if (year >= a.start && year <= a.end) extra += a.val; });
 
-        // 核心引擎
-        function runSimulation() {
-            // A. 輸入
-            const targetRank = document.getElementById('targetRank').value;
-            const serviceYears = parseInt(document.getElementById('serviceYears').value) || 20;
-            const livingCostPercent = parseInt(document.getElementById('livingCostPercent').value) / 100;
-            const monthlyInvestPercent = parseInt(document.getElementById('monthlyInvestPercent').value) / 100;
-            const returnRate = parseFloat(document.getElementById('returnRate').value) / 100;
-            
-            const housePrice = parseInt(document.getElementById('housePriceWan').value) * 10000;
-            const downPayPct = parseFloat(document.getElementById('downPaymentPercent').value) / 100;
-            const mortgageRate = parseFloat(document.getElementById('mortgageRate').value) / 100;
-            const loanYears = parseInt(document.getElementById('loanYears').value);
-            const buyYear = parseInt(document.getElementById('buyHouseYear').value);
+        const grossMonthly = baseWage + rankData.food_add + VOLUNTEER_ADDITION + extra;
+        const netMonthly = Math.round(grossMonthly * (1 - PENSION_DEDUCTION_RATE));
 
-            // B. 房貸 PMT
-            const loanAmount = housePrice * (1 - downPayPct);
-            const r_monthly = mortgageRate / 12;
-            const n_months = loanYears * 12;
-            let monthlyMortgage = 0;
-            if (loanAmount > 0) {
-                if (mortgageRate > 0) {
-                    monthlyMortgage = loanAmount * (r_monthly * Math.pow(1 + r_monthly, n_months)) / (Math.pow(1 + r_monthly, n_months) - 1);
-                } else {
-                    monthlyMortgage = loanAmount / n_months;
-                }
-            }
-            monthlyMortgage = Math.round(monthlyMortgage);
+        // 4. 年度收支計算
+        const annualBonus = Math.round(baseWage * bonusMonths);
+        let annualIncome = (netMonthly * 12) + annualBonus;
 
-            // C. 模擬變數
-            let currentAsset = 0;
-            let currentRank = 'S2';
-            let yearOfRank = 0;
-            let forceRetired = false;
-            let retiredYear = 0;
+        // 房貸支出判斷
+        let yearMortgageCost = 0;
+        let isPayingMortgage = false;
+        if (year >= buyYear && year < (buyYear + loanYears)) {
+            yearMortgageCost = monthlyMortgage * 12;
+            isPayingMortgage = true;
+        }
 
-            const allowances = [];
-            document.querySelectorAll('#custom-allowances-container > div').forEach(row => {
-                allowances.push({
-                    val: parseInt(row.querySelector('.allow-value').value) || 0,
-                    start: parseInt(row.querySelector('.allow-start').value) || 0,
-                    end: parseInt(row.querySelector('.allow-end').value) || 99
-                });
-            });
+        // 扣除頭期款 (購屋當年)
+        if (year === buyYear) currentAsset -= (housePrice * downPayPct);
 
-            const mortgageEndYear = buyYear + loanYears - 1;
-            const maxSimulationYear = Math.max(serviceYears, mortgageEndYear + 1);
+        // 淨現金流 = 年收入 - 生活費 - 房貸 - 定期定額投資
+        const annualExpense = livingCost * 12;
+        const fixedInvest = monthlyInvest * 12;
+        const netCashflow = annualIncome - annualExpense - yearMortgageCost - fixedInvest;
 
-            const labels = [];
-            const incomeData = [];
-            const assetData = [];
-            const stackExpense = [];
-            const stackMortgage = [];
-            const stackInvest = [];
-            const stackSurplus = [];
+        // 5. 資產複利運算
+        // 假設現金流在年底產生，僅本金與固定投資享受完整複利 (簡化模型)
+        currentAsset = currentAsset * (1 + returnRate) + fixedInvest + netCashflow;
 
-            // D. 退休俸計算
-            let tempRank = 'S2', tempYOR = 0, finalBase = 0;
-            for(let y=1; y<=serviceYears; y++) {
-                if (y > SALARY_DB[tempRank].max_years) break;
-                let rIdx = RANK_ORDER.indexOf(tempRank);
-                let tIdx = RANK_ORDER.indexOf(targetRank);
-                if (tempYOR >= SALARY_DB[tempRank].promotion_years && rIdx < tIdx) { tempRank = RANK_ORDER[rIdx + 1]; tempYOR = 0; }
-                const rd = SALARY_DB[tempRank];
-                finalBase = rd.base * Math.pow(1 + rd.annual_growth, y - 1);
-                tempYOR++;
-            }
-            let pension = 0;
-            if (serviceYears >= 20) {
-                const ratio = 0.55 + (serviceYears - 20) * 0.02; 
-                pension = Math.round(finalBase * 2 * Math.min(ratio, 0.95));
-            }
+        // 6. 數據記錄
+        labels.push(`第${year}年`);
+        salaryData.push(netMonthly);
+        assetData.push(Math.round(currentAsset));
 
-            let totalInvestSum = 0;
-            let investMonthsCount = 0;
+        // 房貸負擔率 (房貸/月收入)
+        let burdenRate = 0;
+        if (isPayingMortgage) {
+            burdenRate = (monthlyMortgage / (annualIncome/12)) * 100;
+        }
+        burdenData.push(burdenRate.toFixed(1));
 
-            // E. 迴圈
-            for (let year = 1; year <= maxSimulationYear; year++) {
-                let isActiveDuty = year <= serviceYears;
-                let netMonthlyIncome = 0;
-                let annualIncomeTotal = 0;
+        yearOfRank++;
+    }
 
-                if (isActiveDuty && year > SALARY_DB[currentRank].max_years) {
-                    forceRetired = true; retiredYear = year - 1; isActiveDuty = false;
-                }
+    // --- D. 終身俸試算 ---
+    let actualYears = forceRetired ? retiredYear : serviceYears;
+    let pension = 0;
+    if (actualYears >= 20) {
+        // 簡易新制公式：最後在職本俸 * 2 * (55% + 2% * (年資-20))
+        // 這裡假設本俸隨年資成長率增加
+        const finalBase = SALARY_DB[currentRank].base * Math.pow(1 + SALARY_DB[currentRank].annual_growth, actualYears - 1);
+        const ratio = 0.55 + (actualYears - 20) * 0.02; 
+        pension = Math.round(finalBase * 2 * Math.min(ratio, 0.95)); // 上限 95%
+    }
 
-                if (isActiveDuty) {
-                    const rankIdx = RANK_ORDER.indexOf(currentRank);
-                    const targetIdx = RANK_ORDER.indexOf(targetRank);
-                    if (yearOfRank >= SALARY_DB[currentRank].promotion_years && rankIdx < targetIdx) {
-                        currentRank = RANK_ORDER[rankIdx + 1]; yearOfRank = 0;
-                    }
-                    const rankData = SALARY_DB[currentRank];
-                    const growth = Math.pow(1 + rankData.annual_growth, year - 1);
-                    const baseWage = (rankData.base + rankData.pro_add) * growth;
-                    let extra = 0;
-                    allowances.forEach(a => { if (year >= a.start && year <= a.end) extra += a.val; });
-                    const grossMonthly = baseWage + rankData.food_add + VOLUNTEER_ADDITION + extra;
-                    netMonthlyIncome = Math.round(grossMonthly * (1 - PENSION_DEDUCTION_RATE));
-                    annualIncomeTotal = (netMonthlyIncome * 12) + Math.round(baseWage * 2.5); 
-                    yearOfRank++;
-                } else {
-                    netMonthlyIncome = (serviceYears >= 20 || (forceRetired && retiredYear >= 20)) ? pension : 0;
-                    annualIncomeTotal = netMonthlyIncome * 12;
-                }
+    // --- E. 更新 UI 與報告 ---
+    updateDashboard(currentAsset, monthlyMortgage, pension, forceRetired, currentRank);
+    generateHealthReport(currentAsset, pension, burdenData, buyYear, housePrice, loanAmount, loanYears, actualYears);
+    renderCharts(labels, salaryData, assetData, burdenData);
+}
 
-                let actualMonthlyExpense = Math.round(netMonthlyIncome * livingCostPercent);
-                let actualMonthlyInvest = Math.round(netMonthlyIncome * monthlyInvestPercent);
-                let isPayingMortgage = (year >= buyYear && year < (buyYear + loanYears));
-                let actualMonthlyMortgage = isPayingMortgage ? monthlyMortgage : 0;
-                let actualMonthlySurplus = netMonthlyIncome - actualMonthlyExpense - actualMonthlyInvest - actualMonthlyMortgage;
+// =========================================================
+// 4. 更新儀表板與報告
+// =========================================================
+function updateDashboard(asset, mortgage, pension, forceRetired, rank) {
+    document.getElementById('total-asset').innerText = formatMoney(asset);
+    document.getElementById('monthly-mortgage').innerText = formatMoney(mortgage);
+    
+    const pensionEl = document.getElementById('pension-monthly');
+    if (pension > 0) {
+        pensionEl.innerText = formatMoney(pension);
+        pensionEl.className = "text-2xl font-black text-green-700 mt-1";
+    } else {
+        pensionEl.innerText = "未達門檻";
+        pensionEl.className = "text-xl font-bold text-gray-400 mt-1";
+    }
 
-                if (actualMonthlySurplus < 0) {
-                    if (actualMonthlyInvest + actualMonthlySurplus >= 0) {
-                        actualMonthlyInvest += actualMonthlySurplus; 
-                        actualMonthlySurplus = 0;
-                    } else {
-                        let deficit = actualMonthlySurplus + actualMonthlyInvest;
-                        actualMonthlyInvest = 0; 
-                        actualMonthlySurplus = deficit; 
-                    }
-                }
+    const statusEl = document.getElementById('final-status');
+    if (forceRetired) {
+        statusEl.innerText = `強制退伍 (${SALARY_DB[rank].rank})`;
+        statusEl.className = "text-lg font-bold text-red-600 mt-2";
+    } else {
+        statusEl.innerText = `光榮退伍 (${SALARY_DB[rank].rank})`;
+        statusEl.className = "text-lg font-bold text-blue-600 mt-2";
+    }
+}
 
-                if (isActiveDuty) {
-                    totalInvestSum += actualMonthlyInvest;
-                    investMonthsCount++;
-                }
+function generateHealthReport(asset, pension, burdenData, buyYear, housePrice, loanAmount, loanYears, actualYears) {
+    const maxBurden = Math.max(...burdenData);
+    
+    // 風險評估邏輯
+    let burdenAnalysis = "";
+    if (maxBurden > 50) burdenAnalysis = `<span class="text-red-600 font-bold">⚠️ 極高風險 (最高 ${maxBurden}%)</span>：房貸超過月薪一半，生活將非常拮据，建議增加頭期款或降低購屋預算。`;
+    else if (maxBurden > 30) burdenAnalysis = `<span class="text-orange-600 font-bold">⚠️ 負擔偏重 (最高 ${maxBurden}%)</span>：房貸佔比略高，需嚴格控管其他娛樂支出。`;
+    else if (maxBurden > 0) burdenAnalysis = `<span class="text-green-600 font-bold">✅ 安全範圍 (最高 ${maxBurden}%)</span>：財務結構健康，可輕鬆負擔。`;
+    else burdenAnalysis = `<span class="text-gray-500">無購屋計畫或全額付清。</span>`;
 
-                if (year === buyYear) currentAsset -= (housePrice * downPayPct);
+    const html = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <h4 class="font-bold text-blue-800 text-base mb-2 flex items-center gap-2">
+                    📊 資產與退休評估
+                </h4>
+                <ul class="list-disc list-inside space-y-2 text-gray-700">
+                    <li>您將服役 <strong>${actualYears}</strong> 年，預計累積資產為 <strong class="text-blue-700">${formatMoney(asset)}</strong>。</li>
+                    <li>${pension > 0 
+                        ? `恭喜！您符合終身俸資格，預估月退俸為 <strong class="text-green-700">${formatMoney(pension)}</strong>。這筆穩定的被動收入是軍旅生涯最大的紅利。` 
+                        : `<span class="text-red-500 font-bold">注意！服役未滿 20 年，無法領取終身俸。</span> 若這是您的長期目標，請重新規劃服役長度或晉升路徑。`}
+                    </li>
+                </ul>
+            </div>
+            <div class="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                <h4 class="font-bold text-orange-800 text-base mb-2 flex items-center gap-2">
+                    🏠 購屋能力診斷
+                </h4>
+                <ul class="list-disc list-inside space-y-2 text-gray-700">
+                    <li>預計於第 <strong>${buyYear}</strong> 年購入 <strong>${formatMoney(housePrice)}</strong> 房產。</li>
+                    <li>貸款總額 <strong>${formatMoney(loanAmount)}</strong>，分 <strong>${loanYears}</strong> 年償還。</li>
+                    <li><strong>房貸壓力評估：</strong>${burdenAnalysis}</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    document.getElementById('analysis-report').innerHTML = html;
+}
 
-                let annualBonus = isActiveDuty ? (annualIncomeTotal - netMonthlyIncome * 12) : 0;
-                let bonusInvest = annualBonus * monthlyInvestPercent;
-                let bonusSave = annualBonus - bonusInvest; 
-                let totalAnnualInvest = (actualMonthlyInvest * 12) + bonusInvest;
-                let totalAnnualNetCashflow = (actualMonthlySurplus * 12) + bonusSave;
+// =========================================================
+// 5. 圖表繪製
+// =========================================================
+function renderCharts(labels, salary, asset, burden) {
+    // 銷毀舊圖表
+    if (chart1Instance) chart1Instance.destroy();
+    if (chart2Instance) chart2Instance.destroy();
 
-                currentAsset = currentAsset * (1 + returnRate) + totalAnnualInvest + totalAnnualNetCashflow;
+    const ctx1 = document.getElementById('financialChart').getContext('2d');
+    chart1Instance = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { 
+                    label: '月淨薪資', 
+                    data: salary, 
+                    borderColor: '#3b82f6', 
+                    yAxisID: 'y', 
+                    tension: 0.1 
+                },
+                { 
+                    label: '累積資產', 
+                    data: asset, 
+                    borderColor: '#10b981', 
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                    fill: true, 
+                    yAxisID: 'y1', 
+                    tension: 0.3 
+                }
+            ]
+        },
+        options: {
+            responsive: true, 
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: { type: 'linear', display: true, position: 'left', title: {display:true, text:'月薪'} },
+                y1: { type: 'linear', display: true, position: 'right', title: {display:true, text:'資產'} }
+            }
+        }
+    });
 
-                labels.push(`第${year}年`);
-                incomeData.push(netMonthlyIncome);
-                assetData.push(Math.round(currentAsset));
-                stackExpense.push(actualMonthlyExpense);
-                stackMortgage.push(actualMonthlyMortgage);
-                stackInvest.push(actualMonthlyInvest);
-                stackSurplus.push(Math.max(0, actualMonthlySurplus));
-            }
+    const ctx2 = document.getElementById('burdenChart').getContext('2d');
+    chart2Instance = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { 
+                    label: '房貸負擔率 (%)', 
+                    data: burden, 
+                    backgroundColor: burden.map(v => v > 40 ? '#ef4444' : (v > 30 ? '#f97316' : '#22c55e'))
+                }
+            ]
+        },
+        options: {
+            responsive: true, 
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, max: 100, title: {display:true, text:'佔月薪比例 %'} } },
+            plugins: { 
+                annotation: { 
+                    annotations: { 
+                        line1: { type: 'line', yMin: 30, yMax: 30, borderColor: 'orange', borderWidth: 2, borderDash: [5, 5] } 
+                    } 
+                } 
+            }
+        }
+    });
+}
 
-            let avgInvest = investMonthsCount > 0 ? Math.round(totalInvestSum / investMonthsCount) : 0;
+// =========================================================
+// 6. 系統初始化
+// =========================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // 預設增加一個加給範例
+    addCustomAllowance();
+    
+    // 為所有輸入框綁定事件以即時運算
+    document.body.addEventListener('input', (e) => {
+        // 排除 slider，因為它有自己的 oninput 事件處理
+        if((e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') && e.target.id !== 'returnRateSlider') {
+            runSimulation();
+        }
+    });
 
-            updateUI(currentAsset, monthlyMortgage, pension, avgInvest, serviceYears, buyYear, loanYears);
-            renderCharts(labels, incomeData, assetData, stackExpense, stackMortgage, stackInvest, stackSurplus, serviceYears);
-            generateReport(currentAsset, pension, stackMortgage, stackInvest, incomeData, buyYear, loanYears, serviceYears, mortgageEndYear);
-        }
-
-        function updateUI(asset, mortgage, pension, avgInvest, serviceYears, buyYear, loanYears) {
-            document.getElementById('total-asset').innerText = formatMoney(asset);
-            document.getElementById('monthly-mortgage').innerText = formatMoney(mortgage);
-            document.getElementById('avg-invest').innerText = formatMoney(avgInvest);
-            
-            const pensionEl = document.getElementById('pension-monthly');
-            pensionEl.innerText = pension > 0 ? formatMoney(pension) : "未達門檻";
-            pensionEl.className = pension > 0 ? "text-2xl font-black text-green-700 mt-1" : "text-xl font-bold text-gray-400 mt-1";
-
-            const statusEl = document.getElementById('final-status');
-            const mortgageEnd = buyYear + loanYears;
-            const yearsAfterRetire = mortgageEnd - serviceYears;
-            statusEl.innerHTML = yearsAfterRetire > 0 
-                ? `<span class="text-red-600">⚠️ 退伍後仍需繳 ${yearsAfterRetire} 年</span>` 
-                : `<span class="text-green-600">✅ 退伍前已還清</span>`;
-        }
-
-        function renderCharts(labels, income, asset, expense, mortgage, invest, surplus, serviceYears) {
-            if (chart1Instance) chart1Instance.destroy();
-            if (chart2Instance) chart2Instance.destroy();
-
-            const ctx1 = document.getElementById('financialChart').getContext('2d');
-            chart1Instance = new Chart(ctx1, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: '月收入', data: income, borderColor: '#3b82f6', yAxisID: 'y', tension: 0.1, pointRadius: 1 },
-                        { label: '累積資產', data: asset, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, yAxisID: 'y1', tension: 0.3, pointRadius: 0 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: { 
-                        annotation: { 
-                            annotations: { 
-                                line1: { 
-                                    type: 'line', xMin: serviceYears - 0.5, xMax: serviceYears - 0.5, 
-                                    borderColor: 'gray', borderWidth: 2, borderDash: [5, 5], 
-                                    label: { display: true, content: '退伍', position: 'start', backgroundColor: 'rgba(0,0,0,0.5)' } 
-                                } 
-                            } 
-                        } 
-                    },
-                    scales: { y: { display: true, position: 'left', title:{display:true, text:'金額'} }, y1: { display: true, position: 'right', title:{display:true, text:'資產'} } }
-                }
-            });
-
-            const ctx2 = document.getElementById('cashflowChart').getContext('2d');
-            chart2Instance = new Chart(ctx2, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: '生活支出', data: expense, backgroundColor: '#9ca3af' }, 
-                        { label: '房貸支出', data: mortgage, backgroundColor: '#f97316' }, 
-                        { label: '實際投資', data: invest, backgroundColor: '#8b5cf6' },   
-                        { label: '現金結餘', data: surplus, backgroundColor: '#34d399' }   
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { x: { stacked: true }, y: { stacked: true, title: {display:true, text:'金額 ($)'} } },
-                    plugins: { 
-                        tooltip: { callbacks: { footer: (items) => {
-                            let total = 0; items.forEach(i => total += i.raw); 
-                            return '當月流向: ' + formatMoney(total);
-                        }}}
-                    }
-                }
-            });
-        }
-
-        function generateReport(asset, pension, mortgageData, investData, incomeData, buyYear, loanYears, serviceYears, mortgageEndYear) {
-            let maxMortgage = Math.max(...mortgageData);
-            let lastIncome = incomeData[serviceYears-1] || 0;
-            let maxInvest = Math.max(...investData);
-            
-            const html = `
-                <div class="space-y-3">
-                    <p class="flex items-start gap-2"><span class="text-blue-500 font-bold">1.</span><span><strong>收支分析：</strong>百分比配置法讓投資隨薪資成長。服役巔峰期月投資可達 <span class="text-violet-700 font-bold">${formatMoney(maxInvest)}</span>。</span></p>
-                    <p class="flex items-start gap-2"><span class="text-orange-500 font-bold">2.</span><span><strong>房貸壓力：</strong>最高月付 <strong>${formatMoney(maxMortgage)}</strong>。${maxMortgage > (lastIncome * 0.5) ? '<span class="text-red-600 font-bold">⚠️ 警訊：佔比過高！</span>' : '<span class="text-green-600 font-bold">✅ 安全範圍。</span>'}</span></p>
-                    <p class="flex items-start gap-2"><span class="text-emerald-500 font-bold">3.</span><span><strong>成果：</strong>預估資產 <strong>${formatMoney(asset)}</strong>。${pension > 0 ? `月退俸 <strong>${formatMoney(pension)}</strong>。` : '無月退俸。'}</span></p>
-                </div>
-            `;
-            document.getElementById('analysis-report').innerHTML = html;
-        }
-
-        document.addEventListener('DOMContentLoaded', () => { 
-            addCustomAllowance(); 
-            document.body.addEventListener('input', (e) => { 
-                if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') runSimulation(); 
-            }); 
-            // 延遲執行確保 Chart 載入
-            setTimeout(runSimulation, 200);
-        });
-    </script>
-</body>
-</html>
+    // 初次執行
+    runSimulation();
+});
