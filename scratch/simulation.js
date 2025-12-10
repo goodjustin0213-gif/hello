@@ -1,4 +1,19 @@
 // =========================================================
+// 0. 插件註冊檢查 (關鍵修復：確保圖表能畫出輔助線)
+// =========================================================
+if (typeof Chart !== 'undefined') {
+    // 設定全域字型
+    Chart.defaults.font.family = "'Segoe UI', 'Helvetica', 'Arial', sans-serif";
+    
+    // 檢查並註冊 Annotation 插件
+    if (window['chartjs-plugin-annotation']) {
+        Chart.register(window['chartjs-plugin-annotation']);
+    } else {
+        console.warn("Chart.js Annotation Plugin 未載入，輔助線將無法顯示。");
+    }
+}
+
+// =========================================================
 // 1. 資料庫與常數定義 (114年新制參數)
 // =========================================================
 const SALARY_DB = {
@@ -50,7 +65,7 @@ function addCustomAllowance() {
     const container = document.getElementById('custom-allowances-container');
     const id = `allowance-${allowanceCounter}`;
     
-    // 預設值邏輯
+    // 預設值邏輯：第一筆給外島，其餘給職務
     let defName = "職務加給", defVal = 5000, defStart = 5, defEnd = 10;
     if (allowanceCounter === 1) { defName = "外島加給"; defVal = 9790; defStart = 1; defEnd = 3; }
 
@@ -212,7 +227,7 @@ function runSimulation() {
         // 初步結餘 = 收入 - 支出 - 投資 - 房貸
         let actualMonthlySurplus = netMonthlyIncome - actualMonthlyExpense - actualMonthlyInvest - actualMonthlyMortgage;
 
-        // [修正] 赤字防禦邏輯
+        // [重要] 赤字防禦邏輯：錢不夠時，先砍投資，再吃老本
         if (actualMonthlySurplus < 0) {
             // A計畫: 減少投資金額來填補赤字
             if (actualMonthlyInvest + actualMonthlySurplus >= 0) {
@@ -342,7 +357,7 @@ function renderCharts(labels, income, asset, expense, mortgage, invest, surplus,
                             borderColor: 'gray', 
                             borderWidth: 2, 
                             borderDash: [5, 5], 
-                            label: { display: true, content: '退伍', position: 'start', backgroundColor: 'rgba(0,0,0,0.5)' } 
+                            label: { display: true, content: '退伍', position: 'start', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', font: {size: 10} } 
                         } 
                     } 
                 } 
@@ -376,7 +391,7 @@ function renderCharts(labels, income, asset, expense, mortgage, invest, surplus,
             plugins: { 
                 tooltip: { 
                     callbacks: { 
-                        // Tooltip 顯示總流出
+                        // Tooltip 顯示當月總流向
                         footer: (items) => {
                             let total = 0; items.forEach(i => total += i.raw); 
                             return '當月總流向: ' + formatMoney(total);
@@ -405,7 +420,7 @@ function renderCharts(labels, income, asset, expense, mortgage, invest, surplus,
 // =========================================================
 function generateReport(asset, pension, mortgageData, investData, incomeData, buyYear, loanYears, serviceYears, mortgageEndYear) {
     let maxMortgage = Math.max(...mortgageData);
-    let lastIncome = incomeData[serviceYears-1]; // 退伍前一年的月薪
+    let lastIncome = incomeData[serviceYears-1] || 0;
     let maxInvest = Math.max(...investData);
     
     // 報告生成邏輯
@@ -422,7 +437,7 @@ function generateReport(asset, pension, mortgageData, investData, incomeData, bu
                 <span><strong>房貸壓力檢測：</strong>
                 最高房貸月付金為 <strong>${formatMoney(maxMortgage)}</strong>。
                 ${maxMortgage > (lastIncome * 0.5) 
-                    ? '<span class="text-red-600 font-bold block mt-1">⚠️ 警訊：房貸佔比過高 (>50%)！建議增加頭期款或降低預算。</span>' 
+                    ? '<span class="text-red-600 font-bold block mt-1">⚠️ 警訊：佔比過高 (>50%)！建議增加頭期款或降低預算。</span>' 
                     : '<span class="text-green-600 font-bold block mt-1">✅ 安全：房貸在合理範圍內。</span>'}
                 </span>
             </p>
@@ -450,5 +465,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }); 
     
     // 延遲執行以確保 Chart.js 載入完成
-    setTimeout(runSimulation, 100);
+    setTimeout(runSimulation, 200);
 });
