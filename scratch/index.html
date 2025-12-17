@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍官職涯財務戰情室 | 決策旗艦版 v2.3 (Debugged)</title>
+    <title>軍人職涯薪資規劃決策支援系統 | 批註版</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
@@ -15,11 +15,13 @@
             theme: {
                 extend: {
                     colors: {
-                        military: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', gold: '#d4af37', red: '#ef4444' }
+                        military: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', gold: '#d4af37', red: '#ef4444' },
+                        ink: { red: '#dc2626' } // 紅墨水色
                     },
                     fontFamily: {
                         serif: ['"Noto Serif TC"', 'serif'],
                         sans: ['"Noto Sans TC"', 'sans-serif'],
+                        hand: ['"Ma Shan Zheng"', 'cursive'], // 手寫字體
                     }
                 }
             }
@@ -45,6 +47,45 @@
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #dcfce7; border-radius: 2px; }
         
+        /* 紅墨水特效 CSS */
+        .red-ink {
+            font-family: 'Ma Shan Zheng', cursive;
+            color: #dc2626;
+            position: absolute;
+            z-index: 50;
+            pointer-events: none; /* 讓滑鼠可以穿透批註點擊下方按鈕 */
+            opacity: 0.9;
+            transform: rotate(-2deg);
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.5);
+        }
+        .ink-circle {
+            border: 3px solid #dc2626;
+            border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; /* 不規則手繪圓 */
+            position: absolute;
+            z-index: 49;
+            pointer-events: none;
+        }
+        .ink-arrow {
+            position: absolute;
+            z-index: 49;
+            pointer-events: none;
+            width: 40px;
+            height: 2px;
+            background: #dc2626;
+            transform: rotate(45deg);
+        }
+        .ink-arrow::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: -4px;
+            width: 10px;
+            height: 10px;
+            border-top: 3px solid #dc2626;
+            border-right: 3px solid #dc2626;
+            transform: rotate(45deg);
+        }
+
         @media print {
             aside, header, .no-print { display: none; }
             section { width: 100% !important; overflow: visible; }
@@ -53,39 +94,47 @@
 </head>
 <body class="overflow-hidden bg-slate-100">
 
-    <header class="bg-military-900 text-white h-16 px-6 shadow-lg flex justify-between items-center z-20 relative border-b-4 border-military-gold">
-        <div class="flex items-center gap-3">
+    <header class="bg-military-900 text-white h-16 px-6 shadow-lg flex justify-between items-center z-20 relative border-b-4 border-military-gold overflow-hidden">
+        <div class="flex items-center gap-3 relative">
             <div class="w-9 h-9 bg-military-gold rounded text-military-900 flex items-center justify-center font-black font-serif text-xl shadow-inner">ROC</div>
             <div>
-                <h1 class="text-xl font-bold tracking-wider leading-tight">軍官職涯財務戰情室</h1>
+                <h1 class="text-xl font-bold tracking-wider leading-tight">軍人職涯薪資規劃決策支援系統</h1>
                 <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.3</p>
             </div>
+            
+            <div class="red-ink text-2xl -right-24 top-2 rotate-[-10deg]">機密！</div>
+            <div class="ink-circle w-32 h-12 -left-2 -top-1"></div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 relative">
             <button onclick="exportCSV()" class="no-print bg-military-gold hover:bg-yellow-500 text-military-900 font-bold text-xs px-3 py-1.5 rounded flex items-center gap-1 transition shadow-md">
                 📥 匯出報表
             </button>
+            <div class="red-ink text-lg right-24 top-8 w-40">一定要存檔！</div>
+            <div class="ink-arrow right-20 top-4 rotate-[170deg]"></div>
         </div>
     </header>
 
     <main class="flex flex-col lg:flex-row h-[calc(100vh-4rem)]">
         
-        <aside class="w-full lg:w-[420px] bg-white border-r border-slate-200 shadow-xl z-10 overflow-y-auto scrollable-content pb-20">
+        <aside class="w-full lg:w-[420px] bg-white border-r border-slate-200 shadow-xl z-10 overflow-y-auto scrollable-content pb-20 relative">
+            
+            <div class="red-ink text-xl left-4 top-20 rotate-[5deg] text-red-700">這兩個要好好比對！</div>
+
             <div class="p-5 space-y-6">
                 
                 <div class="bg-slate-100 p-1.5 rounded-lg flex gap-1 mb-4 shadow-inner border border-slate-200">
                     <button onclick="switchScenario('A')" id="btn-scen-A" class="flex-1 py-2 text-xs font-bold rounded-md transition-all flex justify-center items-center gap-2 tab-active shadow-sm">
-                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> 戰略 A (主方案)
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> 戰略 A
                     </button>
                     <button onclick="switchScenario('B')" id="btn-scen-B" class="flex-1 py-2 text-xs font-bold rounded-md transition-all flex justify-center items-center gap-2 tab-inactive">
-                        <span class="w-2 h-2 rounded-full bg-slate-400"></span> 戰略 B (對照組)
+                        <span class="w-2 h-2 rounded-full bg-slate-400"></span> 戰略 B
                     </button>
                 </div>
 
-                <div class="bg-slate-50 p-4 rounded border border-slate-200 relative">
+                <div class="bg-slate-50 p-4 rounded border border-slate-200 relative group">
                     <div class="absolute top-0 right-0 p-2 text-[10px] font-bold text-slate-300" id="current-scen-label">EDITING: A</div>
                     <h3 class="section-label">01. 階級與環境參數</h3>
-                    <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div class="grid grid-cols-2 gap-3 mb-3 relative">
                         <div>
                             <label class="text-[11px] font-bold text-slate-500">目標階級</label>
                             <select id="targetRank" class="input-field w-full rounded p-1.5 text-sm bg-white font-bold text-military-900">
@@ -99,6 +148,10 @@
                                 <option value="G2" class="text-military-gold bg-military-900">中將 (G2)</option>
                             </select>
                         </div>
+                        
+                        <div class="red-ink text-lg -right-4 top-8 rotate-[-15deg]">目標設高一點！</div>
+                        <div class="ink-circle w-16 h-10 left-0 top-6"></div>
+
                         <div>
                             <label class="text-[11px] font-bold text-slate-500">服役年數</label>
                             <div class="relative">
@@ -108,11 +161,15 @@
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-3 mb-2">
+                    <div class="grid grid-cols-2 gap-3 mb-2 relative">
                         <div>
                             <label class="text-[10px] font-bold text-slate-500">預估年通膨 (%)</label>
                             <input type="number" id="inflationRate" value="2.0" step="0.1" class="input-field w-full rounded p-1.5 text-sm text-center text-red-700 bg-white">
                         </div>
+                        
+                        <div class="red-ink text-sm left-4 top-10 w-32">錢會變薄！注意！</div>
+                        <div class="ink-arrow left-10 top-2 rotate-[90deg] h-[1px]"></div>
+
                         <div>
                             <label class="text-[10px] font-bold text-slate-500">軍職調薪率 (%)</label>
                             <input type="number" id="salaryRaiseRate" value="1.0" step="0.1" class="input-field w-full rounded p-1.5 text-sm text-center text-blue-700 bg-white">
@@ -125,24 +182,30 @@
                     </button>
                 </div>
 
-                <div class="bg-blue-50/30 p-4 rounded border border-blue-100">
+                <div class="bg-blue-50/30 p-4 rounded border border-blue-100 relative">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="section-label text-blue-900 border-l-blue-600 mb-0">02. 生活消費明細</h3>
                         <span class="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">月支: <span id="total-expense-display">--</span></span>
                     </div>
+                    
+                    <div class="red-ink text-xl right-2 top-10 rotate-[5deg]">省點花！</div>
+
                     <div id="expense-items-container" class="space-y-2"></div>
                     <button onclick="addExpenseItem()" class="w-full mt-3 text-[10px] text-blue-600 border border-dashed border-blue-300 rounded py-1.5 hover:bg-blue-50 transition">
                         + 新增支出項目 (系統計入通膨)
                     </button>
                 </div>
 
-                <div class="bg-green-50/30 p-4 rounded border border-green-100">
+                <div class="bg-green-50/30 p-4 rounded border border-green-100 relative">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="section-label text-green-900 border-l-green-600 mb-0">03. 投資理財配置</h3>
                         <span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded">總月投: <span id="total-invest-display">--</span></span>
                     </div>
 
-                    <div class="bg-white p-3 rounded border border-green-200 shadow-sm mb-3">
+                    <div class="bg-white p-3 rounded border border-green-200 shadow-sm mb-3 relative">
+                        <div class="red-ink text-2xl -left-2 -top-4 rotate-[-10deg]">重點！</div>
+                        <div class="ink-circle w-full h-full left-0 top-0 border-2"></div>
+
                         <div class="flex justify-between items-end mb-2">
                             <label class="text-[11px] font-bold text-green-800">💰 薪資提撥 (槓桿)</label>
                             <div class="text-right">
@@ -179,7 +242,7 @@
                     </div>
                 </div>
 
-                <div class="bg-orange-50/50 p-4 rounded border border-orange-100">
+                <div class="bg-orange-50/50 p-4 rounded border border-orange-100 relative">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="section-label text-orange-900 border-l-orange-600 mb-0">04. 購屋戰略模組</h3>
                         <label class="inline-flex items-center cursor-pointer">
@@ -187,6 +250,9 @@
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
                         </label>
                     </div>
+                    
+                    <div class="red-ink text-lg right-14 top-0 rotate-[10deg]">慎重！</div>
+
                     <div id="housing-inputs" class="space-y-2 hidden transition-all duration-300">
                         <div class="grid grid-cols-2 gap-2">
                             <div><label class="text-[10px] text-slate-500 font-bold">購屋時間 (第N年)</label><input type="number" id="buyYear" value="10" class="input-field w-full rounded p-1 text-sm"></div>
@@ -214,9 +280,10 @@
 
         <section class="w-full lg:flex-1 bg-slate-100 p-4 lg:p-6 scrollable-content">
             
-            <div id="status-bar" class="hidden bg-red-50 border-l-4 border-red-600 text-red-800 p-4 mb-6 rounded shadow-sm flex items-start animate-pulse">
+            <div id="status-bar" class="hidden bg-red-50 border-l-4 border-red-600 text-red-800 p-4 mb-6 rounded shadow-sm flex items-start animate-pulse relative">
                 <span class="text-2xl mr-3">⚠️</span>
                 <div><h4 class="font-bold text-sm">戰略風險警告 (方案 <span id="warn-scen">A</span>)</h4><p id="status-text" class="text-xs mt-1">偵測到財務赤字...</p></div>
+                <div class="red-ink text-xl right-10 top-2 rotate-[-5deg]">快修正！</div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
@@ -225,12 +292,15 @@
                     <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">方案 A 預估淨資產</p>
                     <div class="flex items-baseline gap-2 mt-1"><p id="total-asset" class="text-3xl font-serif font-black text-military-900">--</p><span class="text-xs font-bold text-slate-400 bg-slate-100 px-1 rounded">名目</span></div>
                     <p id="comp-asset" class="text-xs text-slate-400 mt-2">B 方案差異: --</p>
+                    <div class="ink-circle w-full h-24 left-0 top-4"></div>
+                    <div class="red-ink text-2xl right-2 top-10 rotate-[10deg]">夠了嗎？</div>
                 </div>
                 <div class="bg-white p-5 rounded shadow-sm border-t-4 border-green-600 relative overflow-hidden">
                     <div class="absolute right-[-10px] top-[-10px] text-[100px] text-green-600 opacity-5 rotate-12 font-serif">P</div>
                     <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">終身俸 (月退)</p>
                     <div class="flex items-baseline gap-2 mt-1"><p id="pension-monthly" class="text-3xl font-serif font-black text-green-700">--</p></div>
                     <p id="pension-sub" class="text-[10px] text-slate-400 mt-2">--</p>
+                    <div class="red-ink text-lg right-2 bottom-2 rotate-[-5deg]">養老命脈！</div>
                 </div>
                 <div class="bg-white p-5 rounded shadow-sm border-t-4 border-orange-500 relative overflow-hidden">
                     <div class="absolute right-[-10px] top-[-10px] text-[100px] text-orange-500 opacity-5 rotate-12 font-serif">H</div>
@@ -240,9 +310,10 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
+                <div class="bg-white p-4 rounded shadow-sm border border-slate-200 relative">
                     <h4 class="font-bold text-military-900 mb-4 border-b pb-2 flex justify-between items-center"><span>📊 雙方案資產對照</span><div class="flex gap-2 text-[10px]"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600"></span> 方案 A</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400"></span> 方案 B</span></div></h4>
                     <div class="h-64"><canvas id="assetCompareChart"></canvas></div>
+                    <div class="red-ink text-lg left-1/2 top-10 rotate-[-10deg] opacity-80">差距很大！</div>
                 </div>
                 <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
                     <h4 class="font-bold text-military-900 mb-4 border-b pb-2 flex justify-between items-center"><span>📉 通膨侵蝕分析 (方案 A)</span><span class="text-[10px] font-normal text-slate-400">名目 vs 實質</span></h4>
@@ -250,7 +321,8 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded shadow-sm border border-slate-200 overflow-hidden mb-10">
+            <div class="bg-white rounded shadow-sm border border-slate-200 overflow-hidden mb-10 relative">
+                <div class="red-ink text-xl right-10 top-2 rotate-[5deg]">這張表要印出來！</div>
                 <div class="bg-military-800 p-3 flex justify-between items-center">
                     <h4 class="font-serif font-bold text-white text-sm">📑 方案 A 財務明細 (Event Log)</h4>
                 </div>
@@ -298,7 +370,7 @@
         let charts = {};
         let counters = { allow: 0, exp: 0, inv: 0 };
 
-        // 2. Scenario & List Store
+        // 2. Scenario Store
         function initScenarioStore() {
             const defaultParams = {
                 targetRank: 'M2', serviceYears: 20, inflationRate: 2.0, salaryRaiseRate: 1.0, returnRate: 6.0,
@@ -321,8 +393,13 @@
             document.getElementById('current-scen-label').innerText = `EDITING: ${scen}`;
             const btnA = document.getElementById('btn-scen-A');
             const btnB = document.getElementById('btn-scen-B');
-            if(scen === 'A') { btnA.className = btnA.className.replace('tab-inactive', 'tab-active'); btnB.className = btnB.className.replace('tab-active', 'tab-inactive'); }
-            else { btnB.className = btnB.className.replace('tab-inactive', 'tab-active'); btnA.className = btnA.className.replace('tab-active', 'tab-inactive'); }
+            if(scen === 'A') {
+                btnA.className = btnA.className.replace('tab-inactive', 'tab-active');
+                btnB.className = btnB.className.replace('tab-active', 'tab-inactive');
+            } else {
+                btnB.className = btnB.className.replace('tab-inactive', 'tab-active');
+                btnA.className = btnA.className.replace('tab-active', 'tab-inactive');
+            }
             loadMemoryToInputs(scen);
             orchestrateSimulation();
         }
@@ -365,9 +442,10 @@
             const data = scenarioData[scen];
             if(!data) return;
             const fields = ['targetRank', 'serviceYears', 'inflationRate', 'salaryRaiseRate', 'returnRate', 'buyYear', 'housePriceWan', 'downPaymentPct', 'mortgageRate', 'loanTerm', 'houseAppreciation', 'investSlider'];
-            fields.forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; });
+            fields.forEach(id => { 
+                if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
+            });
             
-            // Housing Toggle Logic (Fixed: Class based)
             document.getElementById('buyHouseToggle').checked = data.buyHouseToggle;
             const hInputs = document.getElementById('housing-inputs');
             if(data.buyHouseToggle) hInputs.classList.remove('hidden');
@@ -383,6 +461,7 @@
             (data.investments || []).forEach(a => addInvestItem(a, true));
         }
 
+        // 3. UI Helpers
         function updateSliderDisplay() {
             const val = document.getElementById('investSlider').value;
             document.getElementById('slider-percent-display').innerText = val + '%';
@@ -409,7 +488,6 @@
             orchestrateSimulation();
         }
 
-        // 3. Row Builders (with skipSim flag)
         function createRowHtml(id, type, data) {
             const name = data?.name || (type === 'exp' ? '固定支出' : (type === 'inv' ? '定期定額' : '加給'));
             const val = data?.val || 5000;
@@ -456,6 +534,7 @@
             let liquidAsset = 0, houseValue = 0, loanBalance = 0, monthlyMortgagePayment = 0, hasBoughtHouse = false;
             const targetIdx = RANK_ORDER.indexOf(p.targetRank);
             const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
+            
             let totalSimulatedInvest = 0; 
 
             for (let y = 1; y <= p.years; y++) {
