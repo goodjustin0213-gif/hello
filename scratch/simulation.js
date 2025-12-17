@@ -1,6 +1,6 @@
 /**
  * 軍官職涯財務戰情室 (Strategic Financial Command Center)
- * 核心邏輯腳本 v2.4 (Red Ink Edition)
+ * 核心邏輯腳本 v2.5 (Red Ink / Precision Edition)
  */
 
 // =========================================================
@@ -133,7 +133,7 @@ function loadMemoryToInputs(scen) {
         }
     });
     
-    // 購屋模組開關與顯示邏輯 (修復版: 使用 hidden class)
+    // 購屋模組開關與顯示邏輯 (使用 hidden class 防止跑版)
     const toggle = document.getElementById('buyHouseToggle');
     const housingInputs = document.getElementById('housing-inputs');
     toggle.checked = data.buyHouseToggle;
@@ -161,17 +161,10 @@ function loadMemoryToInputs(scen) {
 // 3. UI 互動與輔助 (UI Interactions)
 // =========================================================
 
-// 滑桿連動顯示 (修正版：以 S2 起薪為基準)
+// 滑桿連動顯示 (純百分比，不顯示預估金額以免誤導)
 function updateSliderDisplay() {
     const val = document.getElementById('investSlider').value;
     document.getElementById('slider-percent-display').innerText = val + '%';
-    
-    // 概算金額 (使用少尉 S2 起薪作為參考錨點)
-    const rData = REAL_SALARY_STRUCTURE['S2'];
-    const estNet = (rData.base + rData.pro_add + rData.food_add + VOLUNTEER_ADDITION) * 0.95; 
-    const estAmt = Math.round(estNet * (val/100));
-    document.getElementById('slider-amount-display').innerText = formatMoney(estAmt);
-    
     orchestrateSimulation();
 }
 
@@ -183,7 +176,7 @@ function setRisk(level) {
     orchestrateSimulation();
 }
 
-// 購屋開關 (修復版：使用 hidden)
+// 購屋開關 (使用 hidden class)
 function toggleHousingModule() {
     const isChecked = document.getElementById('buyHouseToggle').checked;
     const inputs = document.getElementById('housing-inputs');
@@ -252,7 +245,9 @@ function calculateScenarioData(params) {
     const targetIdx = RANK_ORDER.indexOf(p.targetRank);
     const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
     
-    let totalSimulatedInvest = 0; 
+    // 儲存第一年數據供顯示用
+    let firstYearMonthlyExp = 0;
+    let firstYearMonthlyInv = 0; 
 
     for (let y = 1; y <= p.years; y++) {
         // 退伍與晉升檢查
@@ -280,16 +275,19 @@ function calculateScenarioData(params) {
             if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
         }
 
-        // *** 混合投資邏輯 ***
-        // 1. 薪資提撥 (Slider): 隨著 netMonthly 成長而增加
+        // *** 核心：動態投資邏輯 ***
+        // 1. 薪資提撥 = 當年度月薪 * 滑桿百分比
         const dynamicInvest = netMonthly * p.investSliderPct;
-        // 2. 固定投資 (Fixed Items): 保持固定
+        // 2. 總月投 = 薪資提撥 + 固定投資清單
         const totalMonthlyInv = dynamicInvest + baseFixedInv;
         
-        if(y === 1) totalSimulatedInvest = totalMonthlyInv;
-
-        // 支出隨通膨成長
+        // 3. 月支出 = 基礎支出 * 通膨係數
         const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
+
+        if(y === 1) {
+            firstYearMonthlyExp = currentMonthlyExp;
+            firstYearMonthlyInv = totalMonthlyInv;
+        }
 
         const annualIncome = netMonthly * 13.5;
         const annualExpense = currentMonthlyExp * 12;
@@ -312,7 +310,8 @@ function calculateScenarioData(params) {
     if (history.labels.length >= 20) {
         pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
     }
-    return { history, pension, params: p, baseMonthlyExp, baseMonthlyInv: totalSimulatedInvest };
+    
+    return { history, pension, params: p, firstYearMonthlyExp, firstYearMonthlyInv };
 }
 
 // =========================================================
@@ -330,9 +329,9 @@ function forceRefresh() { orchestrateSimulation(); }
 function updateUI(res, compareRes) {
     const h = res.history; const last = h.netAsset.length - 1;
     
-    // 更新側邊欄金額 (顯示第一年預估值)
-    document.getElementById('total-expense-display').innerText = formatMoney(res.baseMonthlyExp);
-    document.getElementById('total-invest-display').innerText = formatMoney(res.baseMonthlyInv);
+    // 更新側邊欄金額 (顯示第一年金額作為參考)
+    document.getElementById('total-expense-display').innerText = formatMoney(res.firstYearMonthlyExp);
+    document.getElementById('total-invest-display').innerText = formatMoney(res.firstYearMonthlyInv);
     
     // KPI 卡片
     const diff = h.netAsset[last] - compareRes.history.netAsset[compareRes.history.netAsset.length - 1];
