@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍官職涯財務戰情室 | 決策旗艦版 v2.2</title>
+    <title>軍官職涯財務戰情室 | 決策旗艦版 v2.2 (Final)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
@@ -190,7 +190,7 @@
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
                         </label>
                     </div>
-                    <div id="housing-inputs" class="space-y-2 opacity-50 pointer-events-none transition-all duration-300">
+                    <div id="housing-inputs" class="space-y-2 hidden transition-all duration-300">
                         <div class="grid grid-cols-2 gap-2">
                             <div><label class="text-[10px] text-slate-500 font-bold">購屋時間 (第N年)</label><input type="number" id="buyYear" value="10" class="input-field w-full rounded p-1 text-sm"></div>
                             <div><label class="text-[10px] text-slate-500 font-bold">房產總價 (萬)</label><input type="number" id="housePriceWan" value="1500" class="input-field w-full rounded p-1 text-sm font-bold text-orange-800"></div>
@@ -264,10 +264,11 @@
                                 <th class="px-4 py-3 whitespace-nowrap">年度</th>
                                 <th class="px-4 py-3 whitespace-nowrap">階級</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">稅後年收</th>
+                                <th class="px-4 py-3 whitespace-nowrap text-right">房貸支出</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">總支出</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">總投資</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">現金流結餘</th>
-                                <th class="px-4 py-3 whitespace-nowrap text-right">淨資產</th>
+                                <th class="px-4 py-3 whitespace-nowrap text-right">淨資產總額</th>
                             </tr>
                         </thead>
                         <tbody id="event-log-body" class="divide-y divide-slate-100"></tbody>
@@ -326,275 +327,4 @@
             if(scen === 'A') { btnA.className = btnA.className.replace('tab-inactive', 'tab-active'); btnB.className = btnB.className.replace('tab-active', 'tab-inactive'); }
             else { btnB.className = btnB.className.replace('tab-inactive', 'tab-active'); btnA.className = btnA.className.replace('tab-active', 'tab-inactive'); }
             loadMemoryToInputs(scen);
-            orchestrateSimulation();
-        }
-
-        function collectList(className, valClass) {
-            const arr = [];
-            document.querySelectorAll('.' + className).forEach(row => {
-                const name = row.querySelector('.item-name')?.value || '';
-                const val = parseInt(row.querySelector('.' + valClass).value) || 0;
-                const start = row.querySelector('.allow-start') ? parseInt(row.querySelector('.allow-start').value) : 0;
-                const end = row.querySelector('.allow-end') ? parseInt(row.querySelector('.allow-end').value) : 99;
-                if(className === 'allowance-row') arr.push({val, start, end});
-                else arr.push({name, val});
-            });
-            return arr;
-        }
-
-        function saveInputsToMemory(scen) {
-            scenarioData[scen] = {
-                targetRank: document.getElementById('targetRank').value,
-                serviceYears: document.getElementById('serviceYears').value,
-                inflationRate: document.getElementById('inflationRate').value,
-                salaryRaiseRate: document.getElementById('salaryRaiseRate').value,
-                returnRate: document.getElementById('returnRate').value,
-                buyHouseToggle: document.getElementById('buyHouseToggle').checked,
-                buyYear: document.getElementById('buyYear').value,
-                housePriceWan: document.getElementById('housePriceWan').value,
-                downPaymentPct: document.getElementById('downPaymentPct').value,
-                mortgageRate: document.getElementById('mortgageRate').value,
-                loanTerm: document.getElementById('loanTerm').value,
-                houseAppreciation: document.getElementById('houseAppreciation').value,
-                investSliderPct: document.getElementById('investSlider').value, // Slider Save
-                allowances: collectList('allowance-row', 'allow-val'),
-                expenses: collectList('expense-row', 'exp-val'),
-                investments: collectList('invest-row', 'inv-val')
-            };
-        }
-
-        function loadMemoryToInputs(scen) {
-            const data = scenarioData[scen];
-            if(!data) return;
-            const fields = ['targetRank', 'serviceYears', 'inflationRate', 'salaryRaiseRate', 'returnRate', 'buyYear', 'housePriceWan', 'downPaymentPct', 'mortgageRate', 'loanTerm', 'houseAppreciation', 'investSlider'];
-            fields.forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; });
-            
-            document.getElementById('buyHouseToggle').checked = data.buyHouseToggle;
-            toggleHousingModule();
-            updateSliderDisplay(); // Trigger slider UI update
-
-            document.getElementById('custom-allowances-container').innerHTML = '';
-            (data.allowances || []).forEach(a => addCustomAllowance(a));
-            document.getElementById('expense-items-container').innerHTML = '';
-            (data.expenses || []).forEach(a => addExpenseItem(a));
-            document.getElementById('invest-items-container').innerHTML = '';
-            (data.investments || []).forEach(a => addInvestItem(a));
-        }
-
-        // 3. UI Helpers
-        function updateSliderDisplay() {
-            const val = document.getElementById('investSlider').value;
-            document.getElementById('slider-percent-display').innerText = val + '%';
-            
-            // Calculate a rough amount based on Target Rank for immediate feedback
-            const rank = document.getElementById('targetRank').value;
-            const rData = REAL_SALARY_STRUCTURE[rank];
-            // Approx simple net estimation for display only
-            const estNet = (rData.base + rData.pro_add + rData.food_add + VOLUNTEER_ADDITION) * 0.95; 
-            const estAmt = Math.round(estNet * (val/100));
-            document.getElementById('slider-amount-display').innerText = formatMoney(estAmt);
-            
-            orchestrateSimulation();
-        }
-
-        function setRisk(level) {
-            const el = document.getElementById('returnRate');
-            if(level === 'low') el.value = 1.5;
-            if(level === 'mid') el.value = 5.0;
-            if(level === 'high') el.value = 9.0;
-            orchestrateSimulation();
-        }
-
-        function createRowHtml(id, type, data) {
-            const name = data?.name || (type === 'exp' ? '固定支出' : (type === 'inv' ? '定期定額' : '加給'));
-            const val = data?.val || 5000;
-            const color = type === 'exp' ? 'blue' : (type === 'inv' ? 'green' : 'slate');
-            const valClass = type === 'exp' ? 'exp-val' : (type === 'inv' ? 'inv-val' : 'allow-val');
-            const rowClass = type === 'exp' ? 'expense-row' : (type === 'inv' ? 'invest-row' : 'allowance-row');
-            
-            let extra = '';
-            if(type === 'allow') {
-                const s = data?.start || 5; const e = data?.end || 10;
-                extra = `<div class="col-span-2"><input type="number" value="${s}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-start"></div><div class="col-span-2"><input type="number" value="${e}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-end"></div>`;
-            }
-            return `<div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-[10px] bg-${color}-50 p-1 rounded ${rowClass}"><div class="col-span-${type==='allow'?4:7}"><input type="text" value="${name}" class="w-full border-b border-slate-300 bg-transparent px-1 item-name"></div><div class="col-span-3"><input type="number" value="${val}" class="w-full border-b border-slate-300 bg-transparent px-1 text-right ${valClass}"></div>${extra}<div class="col-span-${type==='allow'?1:2} text-center"><button onclick="document.getElementById('${id}').remove(); orchestrateSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div></div>`;
-        }
-
-        function addCustomAllowance(d){ counters.allow++; document.getElementById('custom-allowances-container').insertAdjacentHTML('beforeend', createRowHtml(`allow-${counters.allow}`, 'allow', d)); }
-        function addExpenseItem(d){ counters.exp++; document.getElementById('expense-items-container').insertAdjacentHTML('beforeend', createRowHtml(`exp-${counters.exp}`, 'exp', d)); orchestrateSimulation(); }
-        function addInvestItem(d){ counters.inv++; document.getElementById('invest-items-container').insertAdjacentHTML('beforeend', createRowHtml(`inv-${counters.inv}`, 'inv', d)); orchestrateSimulation(); }
-
-        // 4. Core Logic
-        function calculateScenarioData(params) {
-            const p = {
-                targetRank: params.targetRank,
-                years: parseInt(params.serviceYears) || 20,
-                inflation: parseFloat(params.inflationRate)/100 || 0.02,
-                raise: parseFloat(params.salaryRaiseRate)/100 || 0.01,
-                returnRate: parseFloat(params.returnRate)/100 || 0.06,
-                buyHouse: params.buyHouseToggle,
-                buyYear: parseInt(params.buyYear) || 99,
-                housePrice: (parseInt(params.housePriceWan) || 0) * 10000,
-                downPct: parseFloat(params.downPaymentPct)/100 || 0.2,
-                mortgageRate: parseFloat(params.mortgageRate)/100 || 0.022,
-                loanTerm: parseInt(params.loanTerm) || 30,
-                houseGrowth: parseFloat(params.houseAppreciation)/100 || 0.015,
-                investSliderPct: parseFloat(params.investSliderPct)/100 || 0, // Slider Value
-                allowances: params.allowances || [],
-                expenses: params.expenses || [],
-                investments: params.investments || []
-            };
-
-            const baseMonthlyExp = p.expenses.reduce((sum, item) => sum + item.val, 0);
-            const baseFixedInv = p.investments.reduce((sum, item) => sum + item.val, 0);
-
-            let currentRank = 'S2', yearOfRank = 0, forceRetired = false;
-            let liquidAsset = 0, houseValue = 0, loanBalance = 0, monthlyMortgagePayment = 0, hasBoughtHouse = false;
-            const targetIdx = RANK_ORDER.indexOf(p.targetRank);
-            const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
-            
-            // For Total Display Summation
-            let totalSimulatedInvest = 0; 
-
-            for (let y = 1; y <= p.years; y++) {
-                if (y > REAL_SALARY_STRUCTURE[currentRank].max_years) { forceRetired = true; break; }
-                const rankIdx = RANK_ORDER.indexOf(currentRank);
-                if (yearOfRank >= REAL_SALARY_STRUCTURE[currentRank].promotion_years && rankIdx < targetIdx) { currentRank = RANK_ORDER[rankIdx + 1]; yearOfRank = 0; }
-
-                const rankData = REAL_SALARY_STRUCTURE[currentRank];
-                const base = (rankData.base + rankData.pro_add) * Math.pow(1 + rankData.annual_growth, y - 1) * Math.pow(1 + p.raise, y - 1);
-                let allowance = 0; p.allowances.forEach(a => { if(y >= a.start && y <= a.end) allowance += a.val; });
-                const netMonthly = Math.round((base + rankData.food_add + VOLUNTEER_ADDITION + allowance) * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
-                
-                let yearMortgageCost = 0;
-                if (p.buyHouse && y === p.buyYear && !hasBoughtHouse) {
-                    hasBoughtHouse = true; houseValue = p.housePrice;
-                    const downPay = Math.round(p.housePrice * p.downPct);
-                    loanBalance = p.housePrice - downPay; liquidAsset -= downPay;
-                    const r = p.mortgageRate/12, n = p.loanTerm*12;
-                    monthlyMortgagePayment = (r>0) ? Math.round(loanBalance*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)) : Math.round(loanBalance/n);
-                }
-                if (hasBoughtHouse) {
-                    houseValue = Math.round(houseValue * (1 + p.houseGrowth));
-                    if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
-                }
-
-                // *** HYBRID CALCULATION ***
-                // 1. Dynamic Salary Allocation (Slider)
-                const dynamicInvest = netMonthly * p.investSliderPct;
-                // 2. Fixed Item Investments
-                const fixedInvest = baseFixedInv;
-                
-                // Total Monthly Investment
-                const totalMonthlyInv = dynamicInvest + fixedInvest;
-                if(y === 1) totalSimulatedInvest = totalMonthlyInv; // Capture first year for display
-
-                // Expenses adjust for inflation
-                const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
-
-                const annualIncome = netMonthly * 13.5;
-                const annualExpense = currentMonthlyExp * 12;
-                const annualInvest = totalMonthlyInv * 12;
-                const netCashFlow = annualIncome - annualExpense - annualInvest - yearMortgageCost;
-
-                liquidAsset = liquidAsset * (1 + p.returnRate) + annualInvest + netCashFlow;
-                const netAsset = liquidAsset + houseValue - loanBalance;
-
-                history.labels.push(`Y${y}`);
-                history.netAsset.push(Math.round(netAsset));
-                history.realAsset.push(Math.round(netAsset / Math.pow(1 + p.inflation, y)));
-                history.house.push(Math.round(houseValue));
-                history.loan.push(Math.round(loanBalance));
-                history.logs.push({ y, rank: REAL_SALARY_STRUCTURE[currentRank].rank, income: annualIncome, mortgage: yearMortgageCost, cashflow: netCashFlow, netAsset, invest: annualInvest, expense: annualExpense });
-                yearOfRank++;
-            }
-            
-            let pension = 0;
-            if (history.labels.length >= 20) {
-                pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
-            }
-            return { history, pension, params: p, baseMonthlyExp, baseMonthlyInv: totalSimulatedInvest };
-        }
-
-        // 5. Orchestration
-        function orchestrateSimulation() {
-            saveInputsToMemory(currentScenario);
-            const resA = calculateScenarioData(scenarioData.A);
-            const resB = calculateScenarioData(scenarioData.B);
-            updateUI((currentScenario === 'A') ? resA : resB, (currentScenario === 'A') ? resB : resA);
-        }
-        function forceRefresh() { orchestrateSimulation(); }
-        
-        function updateUI(res, compareRes) {
-            const h = res.history; const last = h.netAsset.length - 1;
-            document.getElementById('total-expense-display').innerText = formatMoney(res.baseMonthlyExp);
-            document.getElementById('total-invest-display').innerText = formatMoney(res.baseMonthlyInv);
-            
-            const diff = h.netAsset[last] - compareRes.history.netAsset[compareRes.history.netAsset.length - 1];
-            document.getElementById('total-asset').innerText = formatMoney(h.netAsset[last]);
-            document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-green-500':'text-red-500'} font-bold">${(diff>=0?'+':'') + formatMoney(diff)}</span>`;
-            document.getElementById('pension-monthly').innerText = res.pension > 0 ? formatMoney(res.pension) : "未達門檻";
-            
-            const hDiv = document.getElementById('housing-status-display');
-            if (res.params.buyHouse) hDiv.innerHTML = `<div class="mt-2 text-xs text-slate-500 space-y-1"><div class="flex justify-between"><span>市值:</span> <span class="font-bold text-orange-700">${formatMoney(h.house[last])}</span></div><div class="flex justify-between"><span>剩貸:</span> <span class="font-bold text-red-600">-${formatMoney(h.loan[last])}</span></div></div>`;
-            else hDiv.innerHTML = `<p class="text-xl font-bold text-slate-300 mt-2">未啟用購屋模組</p>`;
-
-            const negYears = h.logs.filter(l => l.netAsset < 0).length;
-            const sb = document.getElementById('status-bar');
-            if(negYears>0) { sb.classList.remove('hidden'); document.getElementById('warn-scen').innerText = currentScenario; }
-            else sb.classList.add('hidden');
-
-            const tbody = document.getElementById('event-log-body'); tbody.innerHTML = '';
-            h.logs.forEach(l => tbody.insertAdjacentHTML('beforeend', `<tr><td class="px-4 py-3 text-slate-500">Y${l.y}</td><td class="px-4 py-3 font-bold text-military-900">${l.rank}</td><td class="px-4 py-3 text-right">${formatMoney(l.income)}</td><td class="px-4 py-3 text-right text-orange-500">${formatMoney(l.expense)}</td><td class="px-4 py-3 text-right text-green-600">${formatMoney(l.invest)}</td><td class="px-4 py-3 text-right font-bold ${l.cashflow<0?'text-red-600':'text-blue-600'}">${formatMoney(l.cashflow)}</td><td class="px-4 py-3 text-right font-bold">${formatMoney(l.netAsset)}</td></tr>`));
-
-            renderCharts(res, compareRes);
-        }
-
-        function renderCharts(res, compRes) {
-            Chart.defaults.font.family = '"Noto Sans TC", sans-serif';
-            const h = res.history; const ch = compRes.history;
-
-            if (charts.compare) charts.compare.destroy();
-            const ctx1 = document.getElementById('assetCompareChart').getContext('2d');
-            charts.compare = new Chart(ctx1, {
-                type: 'line',
-                data: {
-                    labels: h.labels, 
-                    datasets: [
-                        { label: `方案 ${currentScenario}`, data: h.netAsset, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.3 },
-                        { label: `方案 ${currentScenario==='A'?'B':'A'}`, data: ch.netAsset, borderColor: '#94a3b8', borderWidth: 2, borderDash: [5,5], fill: false, tension: 0.3 }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
-            });
-
-            if (charts.inflation) charts.inflation.destroy();
-            const ctx2 = document.getElementById('inflationChart').getContext('2d');
-            charts.inflation = new Chart(ctx2, {
-                type: 'line',
-                data: {
-                    labels: h.labels,
-                    datasets: [
-                        { label: '名目淨資產', data: h.netAsset, borderColor: '#94a3b8', borderWidth: 2 },
-                        { label: '實質購買力', data: h.realAsset, borderColor: '#d4af37', backgroundColor: 'rgba(212, 175, 55, 0.1)', borderWidth: 3, fill: true }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
-            });
-        }
-
-        function formatMoney(n) { return (isNaN(n) ? '--' : (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('zh-TW')); }
-        function toggleHousingModule() { const c=document.getElementById('buyHouseToggle').checked; document.getElementById('housing-inputs').classList.toggle('opacity-50', !c); document.getElementById('housing-inputs').classList.toggle('pointer-events-none', !c); }
-        function exportCSV() {
-            let csv = "\uFEFF年度,階級,稅後年收,房貸支出,總支出,總投資,現金流結餘,淨資產\n";
-            document.querySelectorAll('#event-log-body tr').forEach(r => csv += Array.from(r.querySelectorAll('td')).map(c => c.innerText.replace(/[$,]/g, '')).join(',') + "\n");
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8;'})); a.download = 'report.csv'; a.click();
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initScenarioStore(); loadMemoryToInputs('A'); orchestrateSimulation();
-            document.body.addEventListener('input', (e) => { if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') orchestrateSimulation(); });
-        });
-    </script>
-</body>
-</html>
+            orche
