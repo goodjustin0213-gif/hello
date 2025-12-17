@@ -1,10 +1,8 @@
 // =========================================================
-// 1. 資料來源與參數設定
+// 1. 資料庫與全域參數 (Data & Config)
 // =========================================================
 
-[cite_start]// 薪資結構：依據 114年1月1日生效俸額表 [cite: 1, 2]
-// 停年參數：依據陸海空軍軍官士官任官條例 (採用法規允許之最快晉升標準，以便模擬將官職涯)
-// 最大年限：依據陸海空軍軍官士官服役條例
+// 薪資結構：依據 114年1月1日生效俸額表 & 專業加給表
 const REAL_SALARY_STRUCTURE = {
     // 【尉官】
     'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 1, annual_growth: 0.015, max_years: 12 }, 
@@ -16,7 +14,7 @@ const REAL_SALARY_STRUCTURE = {
     'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 4, annual_growth: 0.015, max_years: 26 }, 
     'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: 6, annual_growth: 0.015, max_years: 30 }, 
     
-    // 【將官】(本俸依據 Source 2，專業加給為推估值)
+    // 【將官】
     'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, promotion_years: 4, annual_growth: 0.01, max_years: 35 }, 
     'G2': { rank: '中將', base: 53390, pro_add: 80000, food_add: 2840, promotion_years: 3, annual_growth: 0.01, max_years: 38 }, 
     'G3': { rank: '二級上將', base: 109520, pro_add: 90000, food_add: 2840, promotion_years: Infinity, annual_growth: 0.01, max_years: 42 }
@@ -24,23 +22,24 @@ const REAL_SALARY_STRUCTURE = {
 
 const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'G1', 'G2', 'G3'];
 
-// 志願役人員固定加給 (NT$15,000)
+// 志願役人員固定加給 (NT$15,000, 預估 2026 水準)
 const VOLUNTEER_ADDITION_2026 = 15000;
 
 // 國軍退撫基金提撥率 (14%，其中個人負擔 35%)
 const PENSION_RATE = 0.14; 
 const INDIVIDUAL_PENSION_RATIO = 0.35; 
 
-// 全域變數
+// Chart.js 實例與計數器
 let financialChartInstance;
 let scenarioChartInstance;
 let allowanceCounter = 0;
 let lifeEventCounter = 0;
 
 // =========================================================
-// 2. 介面互動與輔助函數
+// 2. 介面互動與輔助函數 (UI Helpers)
 // =========================================================
 
+// 格式化金額顯示
 function formatCurrency(number) {
     if (isNaN(number)) return '--';
     const absNum = Math.abs(Math.round(number));
@@ -48,35 +47,37 @@ function formatCurrency(number) {
     return `${sign}$${absNum.toLocaleString('zh-TW')}`;
 }
 
-// 新增階段性加給輸入框
+// 動態新增「特殊加給」輸入欄位
 function addCustomAllowance() {
     allowanceCounter++;
     const container = document.getElementById('custom-allowances-container');
     const itemId = `custom-item-${allowanceCounter}`;
     
     let defaultName = "", defaultValue = 0, defaultStart = 1, defaultEnd = 5;
+    // 第一次點擊給個範例值
     if (allowanceCounter === 1 && container.children.length === 0) {
-        defaultName = "主官加給(範例)"; defaultValue = 6000; defaultStart = 5; defaultEnd = 8;
+        defaultName = "主官加給"; defaultValue = 6000; defaultStart = 5; defaultEnd = 8;
     }
 
     const html = `
-        <div id="${itemId}" class="grid grid-cols-12 gap-1 items-center allowance-row mb-2 text-xs">
-            <div class="col-span-4"><input type="text" placeholder="項目" value="${defaultName}" class="w-full border rounded py-1 px-1 allow-name" oninput="runSimulation()"></div>
-            <div class="col-span-3"><input type="number" placeholder="$" value="${defaultValue}" class="w-full border rounded py-1 px-1 allow-value" oninput="runSimulation()"></div>
-            <div class="col-span-2"><input type="number" placeholder="始" value="${defaultStart}" class="w-full border rounded py-1 px-1 text-center allow-start" oninput="runSimulation()"></div>
-            <div class="col-span-2"><input type="number" placeholder="末" value="${defaultEnd}" class="w-full border rounded py-1 px-1 text-center allow-end" oninput="runSimulation()"></div>
-            <div class="col-span-1 text-center"><button onclick="document.getElementById('${itemId}').remove(); runSimulation()" class="text-red-500 font-bold">×</button></div>
+        <div id="${itemId}" class="grid grid-cols-12 gap-1 items-center allowance-row mb-2 text-xs bg-white p-1 rounded border border-gray-200 shadow-sm">
+            <div class="col-span-4"><input type="text" placeholder="項目" value="${defaultName}" class="w-full border-b border-gray-300 py-1 px-1 allow-name focus:outline-none" oninput="runSimulation()"></div>
+            <div class="col-span-3"><input type="number" placeholder="$" value="${defaultValue}" class="w-full border-b border-gray-300 py-1 px-1 allow-value focus:outline-none text-right" oninput="runSimulation()"></div>
+            <div class="col-span-2"><input type="number" placeholder="始" value="${defaultStart}" class="w-full border-b border-gray-300 py-1 px-1 text-center allow-start bg-gray-50 focus:outline-none" oninput="runSimulation()"></div>
+            <div class="col-span-2"><input type="number" placeholder="末" value="${defaultEnd}" class="w-full border-b border-gray-300 py-1 px-1 text-center allow-end bg-gray-50 focus:outline-none" oninput="runSimulation()"></div>
+            <div class="col-span-1 text-center"><button onclick="document.getElementById('${itemId}').remove(); runSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div>
         </div>`;
     container.insertAdjacentHTML('beforeend', html);
 }
 
-// 新增人生大事輸入框
+// 動態新增「人生大事」輸入欄位
 function addLifeEvent() {
     lifeEventCounter++;
     const container = document.getElementById('life-events-container');
     const itemId = `life-event-${lifeEventCounter}`;
     
     let defaultName = "", defaultValue = 0, defaultYear = 5;
+    // 預設範例
     if (lifeEventCounter === 1 && container.children.length === 0) {
         defaultName = "結婚補助"; defaultValue = 50000; defaultYear = 6;
     } else if (lifeEventCounter === 2) {
@@ -84,18 +85,17 @@ function addLifeEvent() {
     }
 
     const html = `
-        <div id="${itemId}" class="grid grid-cols-12 gap-1 items-center life-event-row mb-2 text-xs">
-            <div class="col-span-2 text-gray-500 pt-1 text-right pr-1">第</div>
-            <div class="col-span-2"><input type="number" value="${defaultYear}" class="w-full border rounded py-1 px-1 text-center event-year" oninput="runSimulation()"></div>
-            <div class="col-span-1 text-gray-500 pt-1">年</div>
-            <div class="col-span-4"><input type="text" placeholder="事件" value="${defaultName}" class="w-full border rounded py-1 px-1 event-name" oninput="runSimulation()"></div>
-            <div class="col-span-2"><input type="number" placeholder="$" value="${defaultValue}" class="w-full border rounded py-1 px-1 event-amount" oninput="runSimulation()"></div>
-            <div class="col-span-1 text-center"><button onclick="document.getElementById('${itemId}').remove(); runSimulation()" class="text-red-500 font-bold">×</button></div>
+        <div id="${itemId}" class="grid grid-cols-12 gap-1 items-center life-event-row mb-2 text-xs bg-white p-1 rounded border border-red-100 shadow-sm">
+            <div class="col-span-2 text-gray-400 pt-1 text-right pr-1 font-bold">Y</div>
+            <div class="col-span-2"><input type="number" value="${defaultYear}" class="w-full border-b border-gray-300 py-1 px-1 text-center event-year bg-red-50" oninput="runSimulation()"></div>
+            <div class="col-span-4 pl-2"><input type="text" placeholder="事件" value="${defaultName}" class="w-full border-b border-gray-300 py-1 px-1 event-name" oninput="runSimulation()"></div>
+            <div class="col-span-3"><input type="number" placeholder="$" value="${defaultValue}" class="w-full border-b border-gray-300 py-1 px-1 event-amount text-right font-bold text-gray-700" oninput="runSimulation()"></div>
+            <div class="col-span-1 text-center"><button onclick="document.getElementById('${itemId}').remove(); runSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div>
         </div>`;
     container.insertAdjacentHTML('beforeend', html);
 }
 
-// 收集動態輸入的資料
+// 收集 DOM 中的動態輸入資料
 function getConfigs() {
     const allowances = [];
     document.querySelectorAll('.allowance-row').forEach(row => {
@@ -117,11 +117,11 @@ function getConfigs() {
 }
 
 // =========================================================
-// 3. 核心模擬邏輯
+// 3. 核心模擬運算邏輯 (Simulation Logic)
 // =========================================================
 
 function runSimulation() {
-    // 取得使用者參數
+    // A. 讀取使用者輸入參數
     const targetRank = document.getElementById('targetRank').value;
     const serviceYearsInput = parseInt(document.getElementById('serviceYears').value) || 20;
     const monthlySavings = parseInt(document.getElementById('monthlySavings').value) || 0;
@@ -132,68 +132,63 @@ function runSimulation() {
     const { allowances, events } = getConfigs();
     const targetRankIndex = RANK_ORDER.indexOf(targetRank);
 
-    // 變數初始化
+    // B. 初始化變數
     let currentAsset = 0;
-    let currentRank = 'S2';
-    let yearOfRank = 0;
+    let currentRank = 'S2'; // 起始階級：少尉
+    let yearOfRank = 0;     // 停年計數器
     let forceRetired = false;
     let retiredYear = 0;
     
-    // 圖表與報表數據容器
+    // C. 準備數據容器
     const yearsLabel = [];
     const netIncomeData = [];
     const assetData = [];
     const eventLog = [];
 
-    // --- 年度模擬迴圈 ---
+    // --- 年度迴圈開始 ---
     for (let year = 1; year <= serviceYearsInput; year++) {
         
-        // A. 強制退伍檢查
+        // 1. 強制退伍檢查 (最大服役年限)
         const currentRankData = REAL_SALARY_STRUCTURE[currentRank];
         if (year > currentRankData.max_years) {
             forceRetired = true;
             retiredYear = year - 1;
-            break; // 停止模擬
+            break; 
         }
 
-        yearsLabel.push(`第${year}年`);
+        yearsLabel.push(`Y${year}`);
 
-        // B. 晉升邏輯
+        // 2. 晉升邏輯 (檢查停年與目標階級)
         const currentIndex = RANK_ORDER.indexOf(currentRank);
         if (yearOfRank >= currentRankData.promotion_years && currentIndex < targetRankIndex) {
             const nextRankIndex = currentIndex + 1;
+            // 確保不會超過目標設定
             if (nextRankIndex <= targetRankIndex) {
                 currentRank = RANK_ORDER[nextRankIndex];
-                yearOfRank = 0;
+                yearOfRank = 0; // 晉升後停年歸零
             }
         }
 
-        // C. 月薪計算
-        // 1. 該年度適用之加給
+        // 3. 薪資計算
+        // 計算當年適用的加給總額
         let yearAllowance = 0;
         allowances.forEach(conf => { if(year >= conf.start && year <= conf.end) yearAllowance += conf.amount; });
 
-        // 2. 俸級成長係數
+        // 年資俸額成長
         const growthFactor = (1 + currentRankData.annual_growth) ** (year - 1);
-        
-        // 3. 退撫提撥基準 (本俸+專加) * 成長
         const pensionBase = (currentRankData.base + currentRankData.pro_add) * growthFactor;
         
-        // 4. 稅前總月薪
+        // 稅前月薪與實領月薪
         const grossMonthly = pensionBase + currentRankData.food_add + VOLUNTEER_ADDITION_2026 + yearAllowance;
-        
-        // 5. 扣除退撫金
         const pensionDeduction = pensionBase * PENSION_RATE * INDIVIDUAL_PENSION_RATIO;
         const netMonthly = Math.round(grossMonthly - pensionDeduction);
 
-        // D. 年度現金流計算
+        // 4. 年度現金流計算 (Cash Flow)
         let annualIncome = netMonthly * 12;
-        
-        // 加入獎金 (年終+考績)
         const annualBonus = Math.round(pensionBase * bonusMonths);
         annualIncome += annualBonus;
 
-        // 加入人生大事 (一次性收支)
+        // 計算人生大事的影響
         let eventEffect = 0;
         let eventDesc = "";
         events.forEach(e => {
@@ -204,18 +199,16 @@ function runSimulation() {
         });
         annualIncome += eventEffect;
 
-        // E. 支出與儲蓄
+        // 5. 支出與結餘
         const annualExpense = livingCost * 12;
-        const fixedSavings = monthlySavings * 12;
-        
-        // 淨現金流 = 總收 - 總支 - 固定投資
+        const fixedSavings = monthlySavings * 12; // 優先提撥投資
         const netCashflow = annualIncome - annualExpense - fixedSavings;
 
-        // F. 資產複利計算
-        // 公式：去年資產*利率 + 今年投入固定儲蓄 + 剩餘現金(若是負數則扣資產)
+        // 6. 資產複利運算 (Compound Interest)
+        // 本金複利 + 每年固定投入 + 當年現金流結餘(若為負則從資產扣除)
         currentAsset = currentAsset * (1 + returnRate) + fixedSavings + netCashflow;
 
-        // 數據儲存
+        // 7. 紀錄數據
         netIncomeData.push(netMonthly); 
         assetData.push(Math.round(currentAsset));
         
@@ -229,29 +222,31 @@ function runSimulation() {
 
         yearOfRank++;
     }
+    // --- 年度迴圈結束 ---
 
-    // --- 終身俸試算 ---
+    // D. 終身俸試算 (Pension)
     let finalRankData = REAL_SALARY_STRUCTURE[currentRank];
     let actualServiceYears = forceRetired ? retiredYear : serviceYearsInput;
     let pensionMonthly = 0;
     let pensionEligible = actualServiceYears >= 20;
 
     if (pensionEligible) {
-        // 簡易新制公式試算：基數 * 2 * (55% + 2% * (年資-20))
+        // 俸率公式：55% + 2% * (年資-20)
         const baseForPension = finalRankData.base * ((1 + finalRankData.annual_growth) ** (actualServiceYears - 1));
         const ratio = 0.55 + (actualServiceYears - 20) * 0.02;
+        // 退俸 = 基數 * 2 * 俸率 (簡化版概算)
         pensionMonthly = Math.round(baseForPension * 2 * ratio);
     }
 
-    // --- 更新 UI 顯示 ---
+    // E. 更新 UI 顯示 (DOM Updates)
     document.getElementById('total-asset').innerText = formatCurrency(currentAsset);
     
-    // 更新終身俸卡片
+    // 終身俸區塊
     const pensionEl = document.getElementById('pension-monthly');
     const pensionSubEl = document.getElementById('pension-sub');
     if (pensionEligible) {
         pensionEl.innerText = formatCurrency(pensionMonthly);
-        pensionEl.className = "text-2xl font-black text-green-700 mt-1";
+        pensionEl.className = "text-3xl font-serif font-black text-green-700 mt-1";
         pensionSubEl.innerText = `服役 ${actualServiceYears} 年，符合資格`;
     } else {
         pensionEl.innerText = "未達門檻";
@@ -259,7 +254,7 @@ function runSimulation() {
         pensionSubEl.innerText = `僅服役 ${actualServiceYears} 年 (需 20 年)`;
     }
 
-    // 更新狀態警示
+    // 狀態警示區塊
     const statusText = document.getElementById('status-text');
     const statusBar = document.getElementById('status-bar');
     const finalStatusEl = document.getElementById('final-status');
@@ -268,37 +263,39 @@ function runSimulation() {
         statusBar.classList.remove('hidden');
         statusText.innerText = `警告：您在第 ${retiredYear} 年因達到【${REAL_SALARY_STRUCTURE[currentRank].rank}】最大服役年限而強制退伍。`;
         finalStatusEl.innerText = `強制退伍 (${REAL_SALARY_STRUCTURE[currentRank].rank})`;
-        finalStatusEl.className = "text-xl font-bold text-red-600 mt-1";
+        finalStatusEl.className = "text-xl font-bold text-military-red mt-1";
     } else {
         statusBar.classList.add('hidden');
         finalStatusEl.innerText = `光榮退伍 (${REAL_SALARY_STRUCTURE[currentRank].rank})`;
-        finalStatusEl.className = "text-xl font-bold text-indigo-600 mt-1";
+        finalStatusEl.className = "text-xl font-bold text-military-900 mt-1";
     }
 
-    // 更新事件表
+    // 事件紀錄表 (Table)
     const tbody = document.getElementById('event-log-body');
     tbody.innerHTML = '';
     eventLog.forEach(log => {
         const row = `<tr class="bg-white border-b hover:bg-gray-50">
-            <td class="px-4 py-2">第 ${log.year} 年</td>
-            <td class="px-4 py-2 font-medium text-gray-900">${log.rank}</td>
+            <td class="px-4 py-2 font-mono text-gray-500">Y${log.year}</td>
+            <td class="px-4 py-2 font-bold text-military-900">${log.rank}</td>
             <td class="px-4 py-2 ${log.net < 0 ? 'text-red-600 font-bold' : 'text-green-600'}">${formatCurrency(log.net)}</td>
-            <td class="px-4 py-2 text-xs">${log.event || '-'}</td>
+            <td class="px-4 py-2 text-xs text-gray-600">${log.event || '-'}</td>
             <td class="px-4 py-2 text-xs">${log.status}</td>
         </tr>`;
         tbody.insertAdjacentHTML('beforeend', row);
     });
 
-    // 繪製圖表
+    // 呼叫圖表繪製
     renderCharts(yearsLabel, netIncomeData, assetData, monthlySavings, actualServiceYears);
 }
 
 // =========================================================
-// 4. 圖表繪製
+// 4. 圖表繪製函數 (Charts Visualization)
 // =========================================================
 
 function renderCharts(labels, salaryData, assetData, monthlySavings, actualYears) {
-    // 圖表 1: 薪資與資產
+    Chart.defaults.font.family = '"Noto Sans TC", sans-serif';
+
+    // 圖表 1: 薪資與資產趨勢
     if (financialChartInstance) financialChartInstance.destroy();
     const ctx1 = document.getElementById('financialChart').getContext('2d');
     financialChartInstance = new Chart(ctx1, {
@@ -306,23 +303,39 @@ function renderCharts(labels, salaryData, assetData, monthlySavings, actualYears
         data: {
             labels: labels,
             datasets: [
-                { label: '月淨薪資 (含年增)', data: salaryData, borderColor: '#4F46E5', yAxisID: 'y1', tension: 0.1 },
-                { label: '累積總資產', data: assetData, borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, yAxisID: 'y2', tension: 0.3 }
+                { 
+                    label: '月淨薪資', 
+                    data: salaryData, 
+                    borderColor: '#1a2e45', 
+                    backgroundColor:'#1a2e45', 
+                    yAxisID: 'y1', 
+                    tension: 0.1 
+                },
+                { 
+                    label: '累積資產', 
+                    data: assetData, 
+                    borderColor: '#c5a065', 
+                    backgroundColor: 'rgba(197, 160, 101, 0.1)', 
+                    fill: true, 
+                    yAxisID: 'y2', 
+                    tension: 0.3 
+                }
             ]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             scales: {
-                y1: { position: 'left', title: {display: true, text: '月薪 (元)'} },
+                y1: { position: 'left', title: {display: true, text: '月薪 (元)'}, grid: { color: '#f3f4f6' } },
                 y2: { position: 'right', title: {display: true, text: '總資產 (元)'}, grid: {drawOnChartArea: false} }
             }
         }
     });
 
-    // 圖表 2: 投資情境
+    // 圖表 2: 投資情境分析 (Scenario Analysis)
     if (scenarioChartInstance) scenarioChartInstance.destroy();
     
-    // 計算簡單情境 (僅計算固定儲蓄的複利效果，不含現金流結餘)
+    // 內部輔助函數：計算純投資複利 (不含生活結餘)
     const calculateScenario = (rate) => {
         let val = 0;
         const data = [];
@@ -334,9 +347,9 @@ function renderCharts(labels, salaryData, assetData, monthlySavings, actualYears
     }
     
     const baseRate = parseFloat(document.getElementById('returnRate').value) / 100 || 0.05;
-    const lowData = calculateScenario(0.02);
-    const midData = calculateScenario(baseRate);
-    const highData = calculateScenario(0.08);
+    const lowData = calculateScenario(0.02); // 保守
+    const midData = calculateScenario(baseRate); // 目前設定
+    const highData = calculateScenario(0.08); // 積極
 
     const ctx2 = document.getElementById('scenarioChart').getContext('2d');
     scenarioChartInstance = new Chart(ctx2, {
@@ -344,30 +357,34 @@ function renderCharts(labels, salaryData, assetData, monthlySavings, actualYears
         data: {
             labels: labels,
             datasets: [
-                { label: '保守 (2%)', data: lowData, borderColor: '#F59E0B', tension: 0.2 },
-                { label: `設定 (${(baseRate*100).toFixed(1)}%)`, data: midData, borderColor: '#3B82F6', borderWidth: 3, tension: 0.2 },
-                { label: '積極 (8%)', data: highData, borderColor: '#EC4899', tension: 0.2 }
+                { label: '保守 (2%)', data: lowData, borderColor: '#64748b', tension: 0.2, pointRadius: 0 },
+                { label: `目前設定 (${(baseRate*100).toFixed(1)}%)`, data: midData, borderColor: '#3b82f6', borderWidth: 3, tension: 0.2 },
+                { label: '積極 (8%)', data: highData, borderColor: '#f43f5e', tension: 0.2, pointRadius: 0 }
             ]
         },
         options: {
-            responsive: true, maintainAspectRatio: false
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'top' } }
         }
     });
 }
 
-// 系統初始化
+// =========================================================
+// 5. 系統初始化 (Initialization)
+// =========================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 預設加一筆生活事件與加給
+    // 預設各加一筆範例
     addCustomAllowance();
     addLifeEvent();
-
-    // 監聽所有輸入變更以即時更新
+    
+    // 監聽所有輸入變更以即時更新 (Input Listener)
     document.body.addEventListener('input', (e) => {
         if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
             runSimulation();
         }
     });
 
-    // 初次執行
+    // 初次執行模擬
     runSimulation();
 });
