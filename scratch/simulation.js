@@ -1,6 +1,6 @@
 /**
  * 軍官職涯財務戰情室 (Strategic Financial Command Center)
- * 核心邏輯腳本 v2.3 (Final Debugged Version)
+ * 核心邏輯腳本 v2.4 (Red Ink Edition)
  */
 
 // =========================================================
@@ -133,7 +133,7 @@ function loadMemoryToInputs(scen) {
         }
     });
     
-    // 購屋模組開關與顯示邏輯 (修復版)
+    // 購屋模組開關與顯示邏輯 (修復版: 使用 hidden class)
     const toggle = document.getElementById('buyHouseToggle');
     const housingInputs = document.getElementById('housing-inputs');
     toggle.checked = data.buyHouseToggle;
@@ -161,14 +161,13 @@ function loadMemoryToInputs(scen) {
 // 3. UI 互動與輔助 (UI Interactions)
 // =========================================================
 
-// 滑桿連動顯示
+// 滑桿連動顯示 (修正版：以 S2 起薪為基準)
 function updateSliderDisplay() {
     const val = document.getElementById('investSlider').value;
     document.getElementById('slider-percent-display').innerText = val + '%';
     
-    // 概算金額僅供 UI 顯示
-    const rank = document.getElementById('targetRank').value;
-    const rData = REAL_SALARY_STRUCTURE[rank];
+    // 概算金額 (使用少尉 S2 起薪作為參考錨點)
+    const rData = REAL_SALARY_STRUCTURE['S2'];
     const estNet = (rData.base + rData.pro_add + rData.food_add + VOLUNTEER_ADDITION) * 0.95; 
     const estAmt = Math.round(estNet * (val/100));
     document.getElementById('slider-amount-display').innerText = formatMoney(estAmt);
@@ -282,11 +281,15 @@ function calculateScenarioData(params) {
         }
 
         // *** 混合投資邏輯 ***
-        const dynamicInvest = netMonthly * p.investSliderPct; // 滑桿
-        const totalMonthlyInv = dynamicInvest + baseFixedInv; // 加上固定投資
+        // 1. 薪資提撥 (Slider): 隨著 netMonthly 成長而增加
+        const dynamicInvest = netMonthly * p.investSliderPct;
+        // 2. 固定投資 (Fixed Items): 保持固定
+        const totalMonthlyInv = dynamicInvest + baseFixedInv;
+        
         if(y === 1) totalSimulatedInvest = totalMonthlyInv;
 
-        const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1); // 支出通膨
+        // 支出隨通膨成長
+        const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
 
         const annualIncome = netMonthly * 13.5;
         const annualExpense = currentMonthlyExp * 12;
