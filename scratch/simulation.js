@@ -327,7 +327,7 @@ function forceRefresh() { orchestrateSimulation(); }
 function updateUI(res, compareRes) {
     const h = res.history; const last = h.netAsset.length - 1;
     
-    // 更新側邊欄統計
+    // 更新側邊欄金額 (顯示第一年預估值)
     document.getElementById('total-expense-display').innerText = formatMoney(res.baseMonthlyExp);
     document.getElementById('total-invest-display').innerText = formatMoney(res.baseMonthlyInv);
     
