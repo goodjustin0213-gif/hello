@@ -122,8 +122,18 @@ function loadMemoryToInputs(scen) {
         if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
     });
     
-    document.getElementById('buyHouseToggle').checked = data.buyHouseToggle;
-    toggleHousingModule();
+    // 設定 Checkbox 狀態
+    const toggle = document.getElementById('buyHouseToggle');
+    toggle.checked = data.buyHouseToggle;
+    
+    // 確保 UI 狀態同步 (使用 hidden class)
+    const housingInputs = document.getElementById('housing-inputs');
+    if (toggle.checked) {
+        housingInputs.classList.remove('hidden');
+    } else {
+        housingInputs.classList.add('hidden');
+    }
+    
     updateSliderDisplay(); // 更新滑桿顯示文字
 
     // 重建列表
@@ -365,7 +375,18 @@ function renderCharts(res, compRes) {
 // =========================================================
 
 function formatMoney(n) { return (isNaN(n) ? '--' : (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('zh-TW')); }
-function toggleHousingModule() { const c=document.getElementById('buyHouseToggle').checked; document.getElementById('housing-inputs').classList.toggle('opacity-50', !c); document.getElementById('housing-inputs').classList.toggle('pointer-events-none', !c); }
+
+// 購屋模組切換（重要修復：使用 hidden class）
+function toggleHousingModule() { 
+    const c = document.getElementById('buyHouseToggle').checked; 
+    const inputs = document.getElementById('housing-inputs');
+    if (c) {
+        inputs.classList.remove('hidden');
+    } else {
+        inputs.classList.add('hidden');
+    }
+}
+
 function exportCSV() {
     let csv = "\uFEFF年度,階級,稅後年收,房貸支出,總支出,總投資,現金流結餘,淨資產\n";
     document.querySelectorAll('#event-log-body tr').forEach(r => csv += Array.from(r.querySelectorAll('td')).map(c => c.innerText.replace(/[$,]/g, '')).join(',') + "\n");
