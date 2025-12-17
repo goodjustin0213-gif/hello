@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍官職涯財務戰情室 | 旗艦版</title>
+    <title>軍官職涯財務戰情室 | 決策旗艦版 v2.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     
     <script>
         tailwind.config = {
@@ -17,11 +16,11 @@
                 extend: {
                     colors: {
                         military: {
-                            900: '#0f172a', // 深海軍藍
+                            900: '#0f172a', // Navy
                             800: '#1e293b',
                             700: '#334155',
-                            gold: '#d4af37', // 榮譽金
-                            red: '#ef4444',  // 警示紅
+                            gold: '#d4af37', // Gold
+                            red: '#ef4444',
                         }
                     },
                     fontFamily: {
@@ -56,10 +55,11 @@
             font-weight: 800;
             margin-bottom: 0.75rem;
             font-size: 0.95rem;
-            display: flex;
-            align-items: center;
         }
-        /* 列印設定 */
+        /* Scenario Tab Active State */
+        .tab-active { background-color: #0f172a; color: white; border-color: #0f172a; }
+        .tab-inactive { background-color: white; color: #64748b; border-color: #cbd5e1; }
+        
         @media print {
             aside, header, .no-print { display: none; }
             section { width: 100% !important; overflow: visible; }
@@ -73,13 +73,10 @@
             <div class="w-9 h-9 bg-military-gold rounded text-military-900 flex items-center justify-center font-black font-serif text-xl shadow-inner">ROC</div>
             <div>
                 <h1 class="text-xl font-bold tracking-wider leading-tight">軍官職涯財務戰情室</h1>
-                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center</p>
+                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.0</p>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="saveData()" class="no-print bg-military-800 border border-slate-600 hover:bg-military-700 text-xs px-3 py-1.5 rounded flex items-center gap-1 transition">
-                💾 存檔
-            </button>
             <button onclick="exportCSV()" class="no-print bg-military-gold hover:bg-yellow-500 text-military-900 font-bold text-xs px-3 py-1.5 rounded flex items-center gap-1 transition shadow-md">
                 📥 匯出報表
             </button>
@@ -88,10 +85,20 @@
 
     <main class="flex flex-col lg:flex-row h-[calc(100vh-4rem)]">
         
-        <aside class="w-full lg:w-[400px] bg-white border-r border-slate-200 shadow-xl z-10 overflow-y-auto scrollable-content pb-20">
+        <aside class="w-full lg:w-[420px] bg-white border-r border-slate-200 shadow-xl z-10 overflow-y-auto scrollable-content pb-20">
             <div class="p-5 space-y-6">
                 
-                <div class="bg-slate-50 p-4 rounded border border-slate-200">
+                <div class="bg-slate-100 p-1.5 rounded-lg flex gap-1 mb-4 shadow-inner border border-slate-200">
+                    <button onclick="switchScenario('A')" id="btn-scen-A" class="flex-1 py-2 text-xs font-bold rounded-md transition-all flex justify-center items-center gap-2 tab-active shadow-sm">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> 戰略 A (主方案)
+                    </button>
+                    <button onclick="switchScenario('B')" id="btn-scen-B" class="flex-1 py-2 text-xs font-bold rounded-md transition-all flex justify-center items-center gap-2 tab-inactive">
+                        <span class="w-2 h-2 rounded-full bg-slate-400"></span> 戰略 B (對照組)
+                    </button>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded border border-slate-200 relative">
+                    <div class="absolute top-0 right-0 p-2 text-[10px] font-bold text-slate-300" id="current-scen-label">EDITING: A</div>
                     <h3 class="section-label">01. 階級與環境參數</h3>
                     <div class="grid grid-cols-2 gap-3 mb-3">
                         <div>
@@ -133,32 +140,59 @@
                     </button>
                 </div>
 
-                <div class="bg-blue-50/50 p-4 rounded border border-blue-100">
-                    <h3 class="section-label text-blue-900 border-l-blue-600">02. 薪資分配與投資</h3>
-                    <div class="grid grid-cols-2 gap-3 mb-2">
-                        <div>
-                            <label class="text-[11px] font-bold text-slate-500">生活支出 (%)</label>
-                            <input type="number" id="livingCostPercent" value="40" min="0" max="100" class="input-field w-full rounded p-1.5 text-sm text-slate-700">
+                <div class="bg-blue-50/30 p-4 rounded border border-blue-100">
+                    <h3 class="section-label text-blue-900 border-l-blue-600">02. 生活消費管理</h3>
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1">
+                            <label class="text-[11px] font-bold text-slate-500">生活支出佔比 (%)</label>
+                            <div class="relative">
+                                <input type="number" id="livingCostPercent" value="40" min="0" max="100" class="input-field w-full rounded p-1.5 text-sm text-slate-700 font-bold">
+                                <span class="absolute right-2 top-1.5 text-xs text-slate-400">%</span>
+                            </div>
                         </div>
-                        <div>
-                            <label class="text-[11px] font-bold text-slate-500">投資儲蓄 (%)</label>
+                        <div class="text-2xl opacity-20">🛒</div>
+                    </div>
+                </div>
+
+                <div class="bg-green-50/30 p-4 rounded border border-green-100">
+                    <h3 class="section-label text-green-900 border-l-green-600">03. 投資理財配置</h3>
+                    
+                    <div class="mb-3">
+                        <label class="text-[11px] font-bold text-slate-500">投資儲蓄佔比 (%)</label>
+                        <div class="relative">
                             <input type="number" id="monthlySavingsPercent" value="30" min="0" max="100" class="input-field w-full rounded p-1.5 text-sm font-bold text-green-700 bg-white">
+                            <span class="absolute right-2 top-1.5 text-xs text-green-600 font-bold">%</span>
                         </div>
                     </div>
-                    <div class="text-[10px] text-right text-slate-400 mb-3">剩餘 <span id="remain-percent" class="font-bold text-blue-600">30</span>% 為自由現金流</div>
-                    
-                    <div class="flex gap-2 items-center bg-white p-2 rounded border border-blue-100">
-                        <span class="text-xl">📈</span>
-                        <div class="flex-1">
-                            <label class="text-[10px] font-bold text-slate-500 block">投資年化報酬率 (%)</label>
-                            <input type="number" id="returnRate" value="6.0" step="0.5" class="input-field w-full rounded p-1 text-sm font-bold text-blue-700">
+
+                    <div class="bg-white p-3 rounded border border-green-100 shadow-sm">
+                        <label class="text-[10px] font-bold text-slate-500 block mb-1">預期年化報酬率 (%)</label>
+                        <div class="flex gap-2 items-center mb-2">
+                            <input type="number" id="returnRate" value="6.0" step="0.5" class="input-field w-20 rounded p-1 text-sm font-bold text-blue-700 text-center">
+                            <span class="text-[10px] text-slate-400" id="risk-desc">請選擇屬性</span>
                         </div>
+                        
+                        <div class="grid grid-cols-3 gap-1">
+                            <button onclick="setRisk('low')" class="px-2 py-1 text-[10px] border border-slate-200 rounded hover:bg-slate-50 text-slate-600 transition">
+                                🛡️ 保守 (1.5%)
+                            </button>
+                            <button onclick="setRisk('mid')" class="px-2 py-1 text-[10px] border border-blue-200 bg-blue-50 rounded hover:bg-blue-100 text-blue-700 font-bold transition">
+                                ⚖️ 穩健 (5%)
+                            </button>
+                            <button onclick="setRisk('high')" class="px-2 py-1 text-[10px] border border-pink-200 rounded hover:bg-pink-50 text-pink-600 transition">
+                                🚀 積極 (9%)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-[10px] text-right text-slate-400 pt-2 mt-2 border-t border-green-100">
+                        自由現金流結餘： <span id="remain-percent" class="font-bold text-green-600 text-sm">30</span>%
                     </div>
                 </div>
 
                 <div class="bg-orange-50/50 p-4 rounded border border-orange-100">
                     <div class="flex justify-between items-center mb-2">
-                        <h3 class="section-label text-orange-900 border-l-orange-600 mb-0">03. 購屋戰略模組</h3>
+                        <h3 class="section-label text-orange-900 border-l-orange-600 mb-0">04. 購屋戰略模組</h3>
                         <label class="inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="buyHouseToggle" class="sr-only peer" onchange="toggleHousingModule()">
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
@@ -200,9 +234,10 @@
                 </div>
 
                 <div class="pt-4 pb-10">
-                    <button onclick="runSimulation()" class="w-full bg-military-900 hover:bg-military-800 text-white font-serif font-bold py-3.5 rounded shadow-xl transition tracking-widest border-b-4 border-military-gold active:translate-y-1 active:border-b-0 flex justify-center items-center gap-2">
-                        <span>🚀</span> 執行全域戰略模擬
+                    <button onclick="forceRefresh()" class="w-full bg-military-900 hover:bg-military-800 text-white font-serif font-bold py-3.5 rounded shadow-xl transition tracking-widest border-b-4 border-military-gold active:translate-y-1 active:border-b-0 flex justify-center items-center gap-2">
+                        <span>🚀</span> 刷新戰略模擬
                     </button>
+                    <p class="text-[10px] text-center text-slate-400 mt-2">修改參數後會自動即時運算</p>
                 </div>
             </div>
         </aside>
@@ -212,7 +247,7 @@
             <div id="status-bar" class="hidden bg-red-50 border-l-4 border-red-600 text-red-800 p-4 mb-6 rounded shadow-sm flex items-start animate-pulse">
                 <span class="text-2xl mr-3">⚠️</span>
                 <div>
-                    <h4 class="font-bold text-sm">戰略風險警告</h4>
+                    <h4 class="font-bold text-sm">戰略風險警告 (方案 <span id="warn-scen">A</span>)</h4>
                     <p id="status-text" class="text-xs mt-1">偵測到財務赤字...</p>
                 </div>
             </div>
@@ -220,12 +255,12 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
                 <div class="bg-white p-5 rounded shadow-sm border-t-4 border-military-gold relative overflow-hidden group">
                     <div class="absolute right-[-10px] top-[-10px] text-[100px] text-military-gold opacity-5 rotate-12 font-serif">$</div>
-                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">預估 20 年後淨資產</p>
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">方案 A 預估淨資產</p>
                     <div class="flex items-baseline gap-2 mt-1">
                         <p id="total-asset" class="text-3xl font-serif font-black text-military-900">--</p>
-                        <span class="text-xs font-bold text-slate-400 bg-slate-100 px-1 rounded">名目金額</span>
+                        <span class="text-xs font-bold text-slate-400 bg-slate-100 px-1 rounded">名目</span>
                     </div>
-                    <p id="real-asset-val" class="text-xs text-military-700 mt-2 font-bold">≒ 實質購買力： --</p>
+                    <p id="comp-asset" class="text-xs text-slate-400 mt-2">B 方案差異: --</p>
                 </div>
 
                 <div class="bg-white p-5 rounded shadow-sm border-t-4 border-green-600 relative overflow-hidden">
@@ -249,17 +284,20 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
                     <h4 class="font-bold text-military-900 mb-4 border-b pb-2 flex justify-between items-center">
-                        <span>📊 資產結構分析</span>
-                        <span class="text-[10px] font-normal text-slate-400">流動資產 vs 不動產 vs 負債</span>
+                        <span>📊 雙方案資產對照</span>
+                        <div class="flex gap-2 text-[10px]">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600"></span> 方案 A</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400"></span> 方案 B</span>
+                        </div>
                     </h4>
                     <div class="h-64">
-                        <canvas id="assetStructureChart"></canvas>
+                        <canvas id="assetCompareChart"></canvas>
                     </div>
                 </div>
                 <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
                     <h4 class="font-bold text-military-900 mb-4 border-b pb-2 flex justify-between items-center">
-                        <span>📉 通膨侵蝕效應</span>
-                        <span class="text-[10px] font-normal text-slate-400">名目資產 vs 實質購買力</span>
+                        <span>📉 通膨侵蝕分析 (方案 A)</span>
+                        <span class="text-[10px] font-normal text-slate-400">名目 vs 實質</span>
                     </h4>
                     <div class="h-64">
                         <canvas id="inflationChart"></canvas>
@@ -269,8 +307,7 @@
 
             <div class="bg-white rounded shadow-sm border border-slate-200 overflow-hidden mb-10">
                 <div class="bg-military-800 p-3 flex justify-between items-center">
-                    <h4 class="font-serif font-bold text-white text-sm">📑 年度財務紀錄 (Event Log)</h4>
-                    <span class="text-[10px] text-slate-300 bg-military-900 px-2 py-1 rounded">所有金額均為當年幣值</span>
+                    <h4 class="font-serif font-bold text-white text-sm">📑 方案 A 財務明細 (Event Log)</h4>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-xs text-left">
@@ -295,7 +332,7 @@
 
     <script>
         // =========================================================
-        // 1. 全域資料庫 (Database)
+        // 1. Data & Config
         // =========================================================
         const REAL_SALARY_STRUCTURE = {
             'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 1, annual_growth: 0.015, max_years: 12 }, 
@@ -307,17 +344,128 @@
             'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, promotion_years: 4, annual_growth: 0.01, max_years: 35 }, 
             'G2': { rank: '中將', base: 53390, pro_add: 80000, food_add: 2840, promotion_years: 3, annual_growth: 0.01, max_years: 38 }
         };
-
         const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'G1', 'G2'];
         const VOLUNTEER_ADDITION = 15000;
         const PENSION_RATE = 0.14; 
         const INDIVIDUAL_PENSION_RATIO = 0.35; 
 
-        let assetChart, inflationChart;
+        // State
+        let currentScenario = 'A';
+        let scenarioData = { A: {}, B: {} };
+        let charts = {};
         let allowanceCounter = 0;
 
         // =========================================================
-        // 2. 輔助功能 (Utils)
+        // 2. Scenario & Risk Management
+        // =========================================================
+        
+        function initScenarioStore() {
+            // Default params
+            const defaultParams = {
+                targetRank: 'M2', serviceYears: 20, inflationRate: 2.0, salaryRaiseRate: 1.0,
+                livingCostPercent: 40, monthlySavingsPercent: 30, returnRate: 6.0,
+                buyHouseToggle: false, buyYear: 10, housePriceWan: 1500, downPaymentPct: 20,
+                mortgageRate: 2.2, loanTerm: 30, houseAppreciation: 1.5,
+                allowances: [{val: 5000, start: 5, end: 10}]
+            };
+            scenarioData.A = JSON.parse(JSON.stringify(defaultParams));
+            scenarioData.B = JSON.parse(JSON.stringify(defaultParams));
+            // Make B slightly different for demo
+            scenarioData.B.serviceYears = 25;
+            scenarioData.B.returnRate = 4.0; 
+        }
+
+        function switchScenario(scen) {
+            // 1. Save current UI inputs to current Scenario memory
+            saveInputsToMemory(currentScenario);
+            
+            // 2. Switch context
+            currentScenario = scen;
+            document.getElementById('current-scen-label').innerText = `EDITING: ${scen}`;
+            
+            // 3. Update Tab Styles
+            const btnA = document.getElementById('btn-scen-A');
+            const btnB = document.getElementById('btn-scen-B');
+            if(scen === 'A') {
+                btnA.className = btnA.className.replace('tab-inactive', 'tab-active');
+                btnB.className = btnB.className.replace('tab-active', 'tab-inactive');
+            } else {
+                btnB.className = btnB.className.replace('tab-inactive', 'tab-active');
+                btnA.className = btnA.className.replace('tab-active', 'tab-inactive');
+            }
+
+            // 4. Load memory to UI
+            loadMemoryToInputs(scen);
+            
+            // 5. Run Sim
+            orchestrateSimulation();
+        }
+
+        function saveInputsToMemory(scen) {
+            const allowances = [];
+            document.querySelectorAll('.allowance-row').forEach(row => {
+                allowances.push({
+                    val: parseInt(row.querySelector('.allow-val').value) || 0,
+                    start: parseInt(row.querySelector('.allow-start').value) || 0,
+                    end: parseInt(row.querySelector('.allow-end').value) || 99
+                });
+            });
+
+            scenarioData[scen] = {
+                targetRank: document.getElementById('targetRank').value,
+                serviceYears: document.getElementById('serviceYears').value,
+                inflationRate: document.getElementById('inflationRate').value,
+                salaryRaiseRate: document.getElementById('salaryRaiseRate').value,
+                livingCostPercent: document.getElementById('livingCostPercent').value,
+                monthlySavingsPercent: document.getElementById('monthlySavingsPercent').value,
+                returnRate: document.getElementById('returnRate').value,
+                buyHouseToggle: document.getElementById('buyHouseToggle').checked,
+                buyYear: document.getElementById('buyYear').value,
+                housePriceWan: document.getElementById('housePriceWan').value,
+                downPaymentPct: document.getElementById('downPaymentPct').value,
+                mortgageRate: document.getElementById('mortgageRate').value,
+                loanTerm: document.getElementById('loanTerm').value,
+                houseAppreciation: document.getElementById('houseAppreciation').value,
+                allowances: allowances
+            };
+        }
+
+        function loadMemoryToInputs(scen) {
+            const data = scenarioData[scen];
+            if(!data) return;
+            
+            // Basic fields
+            const fields = ['targetRank', 'serviceYears', 'inflationRate', 'salaryRaiseRate',
+                'livingCostPercent', 'monthlySavingsPercent', 'returnRate', 'buyYear', 
+                'housePriceWan', 'downPaymentPct', 'mortgageRate', 'loanTerm', 'houseAppreciation'];
+            
+            fields.forEach(id => {
+                if(document.getElementById(id)) document.getElementById(id).value = data[id];
+            });
+
+            document.getElementById('buyHouseToggle').checked = data.buyHouseToggle;
+            toggleHousingModule();
+
+            // Restore allowances
+            document.getElementById('custom-allowances-container').innerHTML = '';
+            if(data.allowances && data.allowances.length > 0) {
+                data.allowances.forEach(a => addCustomAllowance(a));
+            } else {
+                // If empty, maybe add one empty row
+            }
+        }
+
+        function setRisk(level) {
+            const el = document.getElementById('returnRate');
+            const desc = document.getElementById('risk-desc');
+            if(level === 'low') { el.value = 1.5; desc.innerText = "定存/儲蓄險等級"; }
+            if(level === 'mid') { el.value = 5.0; desc.innerText = "ETF/股債平衡等級"; }
+            if(level === 'high') { el.value = 9.0; desc.innerText = "全股票/積極成長等級"; }
+            orchestrateSimulation();
+        }
+
+        // =========================================================
+        // 3. Logic Utils
         // =========================================================
         function formatMoney(num) {
             if (isNaN(num)) return '--';
@@ -325,28 +473,19 @@
             return (num < 0 ? '-' : '') + '$' + absNum.toLocaleString('zh-TW');
         }
         
-        function formatWan(num) {
-            return (num / 10000).toFixed(1) + '萬';
-        }
-
-        // Toggle Housing Inputs
         function toggleHousingModule() {
             const isChecked = document.getElementById('buyHouseToggle').checked;
             const inputs = document.getElementById('housing-inputs');
-            if (isChecked) {
-                inputs.classList.remove('opacity-50', 'pointer-events-none');
-            } else {
-                inputs.classList.add('opacity-50', 'pointer-events-none');
-            }
-            runSimulation();
+            if (isChecked) inputs.classList.remove('opacity-50', 'pointer-events-none');
+            else inputs.classList.add('opacity-50', 'pointer-events-none');
         }
 
-        // Add Allowance
-        function addCustomAllowance() {
+        function addCustomAllowance(data = null) {
             allowanceCounter++;
             const container = document.getElementById('custom-allowances-container');
             const id = `allow-${allowanceCounter}`;
             let defName = "職務加給", defVal = 5000, defStart = 5, defEnd = 10;
+            if(data) { defVal = data.val; defStart = data.start; defEnd = data.end; }
             
             const html = `
                 <div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-[10px] bg-slate-50 p-1 rounded allowance-row">
@@ -354,141 +493,104 @@
                     <div class="col-span-3"><input type="number" value="${defVal}" class="w-full border-b border-slate-300 bg-transparent px-1 text-right allow-val"></div>
                     <div class="col-span-2"><input type="number" value="${defStart}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-start"></div>
                     <div class="col-span-2"><input type="number" value="${defEnd}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-end"></div>
-                    <div class="col-span-1 text-center"><button onclick="document.getElementById('${id}').remove(); runSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div>
+                    <div class="col-span-1 text-center"><button onclick="document.getElementById('${id}').remove(); orchestrateSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div>
                 </div>`;
             container.insertAdjacentHTML('beforeend', html);
         }
 
-        // Get Allowances
-        function getAllowances() {
-            const arr = [];
-            document.querySelectorAll('.allowance-row').forEach(row => {
-                arr.push({
-                    val: parseInt(row.querySelector('.allow-val').value) || 0,
-                    start: parseInt(row.querySelector('.allow-start').value) || 0,
-                    end: parseInt(row.querySelector('.allow-end').value) || 99
-                });
-            });
-            return arr;
-        }
-
         // =========================================================
-        // 3. 核心運算 (Simulation Core)
+        // 4. Core Simulation Engine (Pure Function)
         // =========================================================
-        function runSimulation() {
-            // A. Inputs
-            const params = {
-                targetRank: document.getElementById('targetRank').value,
-                years: parseInt(document.getElementById('serviceYears').value) || 20,
-                inflation: (parseFloat(document.getElementById('inflationRate').value) || 0) / 100,
-                raise: (parseFloat(document.getElementById('salaryRaiseRate').value) || 0) / 100,
-                livingPct: (parseFloat(document.getElementById('livingCostPercent').value) || 0) / 100,
-                investPct: (parseFloat(document.getElementById('monthlySavingsPercent').value) || 0) / 100,
-                returnRate: (parseFloat(document.getElementById('returnRate').value) || 0) / 100,
-                // Housing
-                buyHouse: document.getElementById('buyHouseToggle').checked,
-                buyYear: parseInt(document.getElementById('buyYear').value) || 99,
-                housePrice: (parseInt(document.getElementById('housePriceWan').value) || 0) * 10000,
-                downPct: (parseFloat(document.getElementById('downPaymentPct').value) || 0) / 100,
-                mortgageRate: (parseFloat(document.getElementById('mortgageRate').value) || 0) / 100,
-                loanTerm: parseInt(document.getElementById('loanTerm').value) || 30,
-                houseGrowth: (parseFloat(document.getElementById('houseAppreciation').value) || 0) / 100,
+        function calculateScenarioData(params) {
+            // Parse numerical values from stored string params
+            const p = {
+                targetRank: params.targetRank,
+                years: parseInt(params.serviceYears) || 20,
+                inflation: parseFloat(params.inflationRate)/100 || 0.02,
+                raise: parseFloat(params.salaryRaiseRate)/100 || 0.01,
+                livingPct: parseFloat(params.livingCostPercent)/100 || 0.4,
+                investPct: parseFloat(params.monthlySavingsPercent)/100 || 0.3,
+                returnRate: parseFloat(params.returnRate)/100 || 0.06,
+                buyHouse: params.buyHouseToggle,
+                buyYear: parseInt(params.buyYear) || 99,
+                housePrice: (parseInt(params.housePriceWan) || 0) * 10000,
+                downPct: parseFloat(params.downPaymentPct)/100 || 0.2,
+                mortgageRate: parseFloat(params.mortgageRate)/100 || 0.022,
+                loanTerm: parseInt(params.loanTerm) || 30,
+                houseGrowth: parseFloat(params.houseAppreciation)/100 || 0.015,
+                allowances: params.allowances || []
             };
 
-            // Update Remain Percent
-            document.getElementById('remain-percent').innerText = (100 - (params.livingPct*100) - (params.investPct*100)).toFixed(0);
-
-            // B. Variables
             let currentRank = 'S2';
             let yearOfRank = 0;
             let forceRetired = false;
-            let liquidAsset = 0; // Cash + Stock
+            let liquidAsset = 0;
             let houseValue = 0;
             let loanBalance = 0;
             let monthlyMortgagePayment = 0;
             let hasBoughtHouse = false;
-            let totalMortgagePaid = 0;
-
-            const targetIdx = RANK_ORDER.indexOf(params.targetRank);
+            
+            const targetIdx = RANK_ORDER.indexOf(p.targetRank);
             const history = { labels: [], netAsset: [], realAsset: [], liquid: [], house: [], loan: [], logs: [] };
 
-            // C. Loop
-            for (let y = 1; y <= params.years; y++) {
-                // 1. Check Retirement
+            for (let y = 1; y <= p.years; y++) {
                 if (y > REAL_SALARY_STRUCTURE[currentRank].max_years) { forceRetired = true; break; }
                 
-                // 2. Promotion
+                // Promotion
                 const rankIdx = RANK_ORDER.indexOf(currentRank);
                 if (yearOfRank >= REAL_SALARY_STRUCTURE[currentRank].promotion_years && rankIdx < targetIdx) {
                     currentRank = RANK_ORDER[rankIdx + 1];
                     yearOfRank = 0;
                 }
 
-                // 3. Salary Calculation (with Policy Raise)
+                // Salary
                 const rankData = REAL_SALARY_STRUCTURE[currentRank];
-                const policyFactor = Math.pow(1 + params.raise, y - 1);
+                const policyFactor = Math.pow(1 + p.raise, y - 1);
                 const seniorityFactor = Math.pow(1 + rankData.annual_growth, y - 1);
-                
-                // Base & Allowance
                 const base = (rankData.base + rankData.pro_add) * seniorityFactor * policyFactor;
+                
                 let allowance = 0;
-                getAllowances().forEach(a => { if(y >= a.start && y <= a.end) allowance += a.val; });
+                p.allowances.forEach(a => { if(y >= a.start && y <= a.end) allowance += a.val; });
                 
                 const gross = base + rankData.food_add + VOLUNTEER_ADDITION + allowance;
                 const netMonthly = Math.round(gross * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
                 
-                // 4. Housing Logic
+                // Housing
                 let yearMortgageCost = 0;
-                
-                // Trigger Buy
-                if (params.buyHouse && y === params.buyYear && !hasBoughtHouse) {
+                if (p.buyHouse && y === p.buyYear && !hasBoughtHouse) {
                     hasBoughtHouse = true;
-                    houseValue = params.housePrice; // Nominal Price at buy time
-                    const downPay = Math.round(params.housePrice * params.downPct);
-                    loanBalance = params.housePrice - downPay;
-                    liquidAsset -= downPay; // Deduct from liquid
+                    houseValue = p.housePrice;
+                    const downPay = Math.round(p.housePrice * p.downPct);
+                    loanBalance = p.housePrice - downPay;
+                    liquidAsset -= downPay;
                     
-                    // Calc PMT
-                    const r = params.mortgageRate / 12;
-                    const n = params.loanTerm * 12;
-                    if (r > 0) {
-                        monthlyMortgagePayment = Math.round(loanBalance * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1));
-                    } else {
-                        monthlyMortgagePayment = Math.round(loanBalance / n);
-                    }
+                    const r = p.mortgageRate / 12;
+                    const n = p.loanTerm * 12;
+                    monthlyMortgagePayment = (r > 0) ? Math.round(loanBalance * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1)) : Math.round(loanBalance / n);
                 }
 
-                // Ongoing Housing Updates
                 if (hasBoughtHouse) {
-                    // Asset Appreciation
-                    houseValue = Math.round(houseValue * (1 + params.houseGrowth));
-                    
-                    // Loan Repayment (Yearly total)
+                    houseValue = Math.round(houseValue * (1 + p.houseGrowth));
                     if (loanBalance > 0) {
                         yearMortgageCost = monthlyMortgagePayment * 12;
-                        
-                        // Interest component approx
-                        const yearlyInterest = loanBalance * params.mortgageRate;
-                        const principalRepaid = yearMortgageCost - yearlyInterest;
-                        
-                        loanBalance -= principalRepaid;
+                        const yearlyInterest = loanBalance * p.mortgageRate;
+                        loanBalance -= (yearMortgageCost - yearlyInterest);
                         if(loanBalance < 0) loanBalance = 0;
                     }
                 }
 
-                // 5. Cash Flow
-                const annualIncome = (netMonthly * 13.5); // Approx 1.5 month bonus
-                const annualExpense = annualIncome * params.livingPct;
-                const annualInvest = annualIncome * params.investPct;
-                
+                // Cashflow
+                const annualIncome = (netMonthly * 13.5);
+                const annualExpense = annualIncome * p.livingPct;
+                const annualInvest = annualIncome * p.investPct;
                 const netCashFlow = annualIncome - annualExpense - annualInvest - yearMortgageCost;
 
-                // 6. Asset Compound
-                liquidAsset = liquidAsset * (1 + params.returnRate) + annualInvest + netCashFlow;
+                // Compound
+                liquidAsset = liquidAsset * (1 + p.returnRate) + annualInvest + netCashFlow;
 
-                // 7. Data Recording
+                // Record
                 const netAsset = liquidAsset + houseValue - loanBalance;
-                const inflationFactor = Math.pow(1 + params.inflation, y);
+                const inflationFactor = Math.pow(1 + p.inflation, y);
                 const realAsset = Math.round(netAsset / inflationFactor);
 
                 history.labels.push(`Y${y}`);
@@ -496,79 +598,94 @@
                 history.realAsset.push(realAsset);
                 history.liquid.push(Math.round(liquidAsset));
                 history.house.push(Math.round(houseValue));
-                history.loan.push(Math.round(loanBalance)); // Positive value for display
-                
+                history.loan.push(Math.round(loanBalance));
                 history.logs.push({
                     y, rank: REAL_SALARY_STRUCTURE[currentRank].rank,
-                    income: annualIncome,
-                    mortgage: yearMortgageCost,
-                    cashflow: netCashFlow,
-                    netAsset: netAsset
+                    income: annualIncome, mortgage: yearMortgageCost, cashflow: netCashFlow, netAsset: netAsset
                 });
 
                 yearOfRank++;
             }
-
-            // D. Pension
+            
+            // Pension
             let pension = 0;
             const actualYears = history.labels.length;
             if (actualYears >= 20) {
-                // Simplified Pension
                 const finalBase = REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, actualYears-1);
                 const ratio = 0.55 + (actualYears - 20) * 0.02;
                 pension = Math.round(finalBase * 2 * ratio);
             }
 
-            updateUI(history, pension, forceRetired, currentRank, actualYears, params);
+            return { history, pension, forceRetired, actualYears, params: p };
         }
 
         // =========================================================
-        // 4. UI 更新 (UI Update)
+        // 5. Orchestration (Run both scenarios)
         // =========================================================
-        function updateUI(history, pension, forceRetired, rank, years, params) {
-            const last = history.netAsset.length - 1;
-            const finalAsset = history.netAsset[last];
-            const finalReal = history.realAsset[last];
-
-            // 1. KPI
-            document.getElementById('total-asset').innerText = formatMoney(finalAsset);
-            document.getElementById('real-asset-val').innerText = `≒ 實質購買力：${formatMoney(finalReal)} (已扣除 ${params.years} 年通膨)`;
+        function orchestrateSimulation() {
+            // 1. Save UI to current
+            saveInputsToMemory(currentScenario);
             
-            // Pension
-            const pEl = document.getElementById('pension-monthly');
-            if (pension > 0) {
-                pEl.innerText = formatMoney(pension);
-                pEl.className = "text-3xl font-serif font-black text-green-700";
-                document.getElementById('pension-sub').innerText = "符合終身俸資格";
-            } else {
-                pEl.innerText = "未達門檻";
-                pEl.className = "text-xl font-bold text-slate-400";
-                document.getElementById('pension-sub').innerText = `年資 ${years} 年 (需 20 年)`;
-            }
+            // 2. Calc A
+            const resA = calculateScenarioData(scenarioData.A);
+            
+            // 3. Calc B
+            const resB = calculateScenarioData(scenarioData.B);
+            
+            // 4. Update UI based on current scenario
+            const currentRes = (currentScenario === 'A') ? resA : resB;
+            const compareRes = (currentScenario === 'A') ? resB : resA; // Data for comparison line
+            
+            updateUI(currentRes, compareRes);
+        }
 
+        function forceRefresh() {
+            orchestrateSimulation();
+        }
+
+        // =========================================================
+        // 6. UI Update & Charts
+        // =========================================================
+        function updateUI(res, compareRes) {
+            const h = res.history;
+            const last = h.netAsset.length - 1;
+            const finalAsset = h.netAsset[last];
+            const finalReal = h.realAsset[last];
+            
+            // Comparison diff
+            const compLast = compareRes.history.netAsset.length - 1;
+            const compFinal = compareRes.history.netAsset[compLast];
+            const diff = finalAsset - compFinal;
+            const diffText = (diff >= 0 ? '+' : '') + formatMoney(diff);
+            
+            // Text Updates
+            document.getElementById('remain-percent').innerText = (100 - (res.params.livingPct*100) - (res.params.investPct*100)).toFixed(0);
+            document.getElementById('total-asset').innerText = formatMoney(finalAsset);
+            document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-green-500':'text-red-500'} font-bold">${diffText}</span>`;
+            
+            document.getElementById('pension-monthly').innerText = res.pension > 0 ? formatMoney(res.pension) : "未達門檻";
+            document.getElementById('pension-monthly').className = res.pension > 0 ? "text-3xl font-serif font-black text-green-700" : "text-xl font-bold text-slate-400";
+            
             // Housing Status
             const hDiv = document.getElementById('housing-status-display');
-            if (params.buyHouse) {
-                const finalHouse = history.house[last];
-                const finalLoan = history.loan[last];
-                const equity = finalHouse - finalLoan;
+            if (res.params.buyHouse) {
+                const eq = h.house[last] - h.loan[last];
                 hDiv.innerHTML = `
                     <div class="mt-2 text-xs text-slate-500 space-y-1">
-                        <div class="flex justify-between"><span>房產市值:</span> <span class="font-bold text-orange-700">${formatMoney(finalHouse)}</span></div>
-                        <div class="flex justify-between"><span>剩餘房貸:</span> <span class="font-bold text-red-600">-${formatMoney(finalLoan)}</span></div>
-                        <div class="border-t pt-1 flex justify-between"><span>淨權益:</span> <span class="font-bold text-green-600">${formatMoney(equity)}</span></div>
-                    </div>
-                `;
+                        <div class="flex justify-between"><span>市值:</span> <span class="font-bold text-orange-700">${formatMoney(h.house[last])}</span></div>
+                        <div class="flex justify-between"><span>剩貸:</span> <span class="font-bold text-red-600">-${formatMoney(h.loan[last])}</span></div>
+                        <div class="border-t pt-1 flex justify-between"><span>淨權益:</span> <span class="font-bold text-green-600">${formatMoney(eq)}</span></div>
+                    </div>`;
             } else {
                 hDiv.innerHTML = `<p class="text-xl font-bold text-slate-300 mt-2">未啟用購屋模組</p>`;
             }
 
-            // Status Bar (Negative Cash check)
-            const negYears = history.logs.filter(l => l.netAsset < 0).length;
+            // Warning
+            const negYears = h.logs.filter(l => l.netAsset < 0).length;
             const statusBar = document.getElementById('status-bar');
-            if (negYears > 0) {
+            if(negYears > 0) {
                 statusBar.classList.remove('hidden');
-                document.getElementById('status-text').innerText = `警告：在模擬過程中有 ${negYears} 個年度出現淨資產為負（破產風險），建議調整購屋預算或支出比例。`;
+                document.getElementById('warn-scen').innerText = currentScenario;
             } else {
                 statusBar.classList.add('hidden');
             }
@@ -576,7 +693,7 @@
             // Table
             const tbody = document.getElementById('event-log-body');
             tbody.innerHTML = '';
-            history.logs.forEach(l => {
+            h.logs.forEach(l => {
                 const row = `<tr>
                     <td class="px-4 py-3 font-mono text-slate-500">Y${l.y}</td>
                     <td class="px-4 py-3 font-bold text-military-900">${l.rank}</td>
@@ -588,46 +705,59 @@
                 tbody.insertAdjacentHTML('beforeend', row);
             });
 
-            renderCharts(history);
+            renderAllCharts(res, compareRes);
         }
 
-        // =========================================================
-        // 5. 圖表繪製 (Charts)
-        // =========================================================
-        function renderCharts(h) {
+        function renderAllCharts(res, compRes) {
             Chart.defaults.font.family = '"Noto Sans TC", sans-serif';
+            
+            const h = res.history;
+            const ch = compRes.history;
 
-            // Chart 1: Structure (Stacked)
-            if (assetChart) assetChart.destroy();
-            const ctx1 = document.getElementById('assetStructureChart').getContext('2d');
-            assetChart = new Chart(ctx1, {
+            // Chart 1: Comparison
+            if (charts.compare) charts.compare.destroy();
+            const ctx1 = document.getElementById('assetCompareChart').getContext('2d');
+            charts.compare = new Chart(ctx1, {
                 type: 'line',
                 data: {
-                    labels: h.labels,
+                    labels: h.labels, // Assuming similar length or taking current
                     datasets: [
-                        { label: '房貸負債', data: h.loan.map(v => -v), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.2)', fill: true, order: 1 },
-                        { label: '房產市值', data: h.house, borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.2)', fill: true, order: 2 },
-                        { label: '流動資產', data: h.liquid, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.2)', fill: true, order: 3 },
-                        { label: '淨資產總額', data: h.netAsset, type: 'line', borderColor: '#0f172a', borderWidth: 2, borderDash: [5,5], fill: false, order: 0 }
+                        { 
+                            label: `方案 ${currentScenario} (當前)`, 
+                            data: h.netAsset, 
+                            borderColor: '#3b82f6', 
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                            borderWidth: 3, 
+                            fill: true,
+                            tension: 0.3
+                        },
+                        { 
+                            label: `方案 ${currentScenario==='A'?'B':'A'} (對照)`, 
+                            data: ch.netAsset, 
+                            borderColor: '#94a3b8', 
+                            borderWidth: 2, 
+                            borderDash: [5,5], 
+                            fill: false,
+                            tension: 0.3
+                        }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: { y: { stacked: true } }
+                    interaction: { mode: 'index', intersect: false }
                 }
             });
 
-            // Chart 2: Inflation
-            if (inflationChart) inflationChart.destroy();
+            // Chart 2: Inflation (Current Scenario Only)
+            if (charts.inflation) charts.inflation.destroy();
             const ctx2 = document.getElementById('inflationChart').getContext('2d');
-            inflationChart = new Chart(ctx2, {
+            charts.inflation = new Chart(ctx2, {
                 type: 'line',
                 data: {
                     labels: h.labels,
                     datasets: [
-                        { label: '名目淨資產 (帳面數字)', data: h.netAsset, borderColor: '#94a3b8', borderWidth: 2, tension: 0.3 },
-                        { label: '實質購買力 (扣除通膨)', data: h.realAsset, borderColor: '#d4af37', backgroundColor: 'rgba(212, 175, 55, 0.1)', borderWidth: 3, fill: true, tension: 0.3 }
+                        { label: '名目淨資產', data: h.netAsset, borderColor: '#94a3b8', borderWidth: 2 },
+                        { label: '實質購買力 (折現)', data: h.realAsset, borderColor: '#d4af37', backgroundColor: 'rgba(212, 175, 55, 0.1)', borderWidth: 3, fill: true }
                     ]
                 },
                 options: {
@@ -636,36 +766,10 @@
                 }
             });
         }
-
-        // =========================================================
-        // 6. 存檔與匯出 (Data Persistence)
-        // =========================================================
-        function saveData() {
-            const inputs = document.querySelectorAll('input, select');
-            const data = {};
-            inputs.forEach(el => {
-                if(el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value;
-            });
-            localStorage.setItem('militaryPlanData', JSON.stringify(data));
-            alert('✅ 戰略參數已儲存至瀏覽器！');
-        }
-
-        function loadData() {
-            const saved = localStorage.getItem('militaryPlanData');
-            if(saved) {
-                const data = JSON.parse(saved);
-                for(let key in data) {
-                    const el = document.getElementById(key);
-                    if(el) {
-                        if(el.type === 'checkbox') el.checked = data[key];
-                        else el.value = data[key];
-                    }
-                }
-                toggleHousingModule();
-            }
-        }
-
+        
+        // Export CSV
         function exportCSV() {
+            // ... (Same export logic, pulling from current table) ...
             let csv = "\uFEFF年度,階級,稅後年收,房貸支出,現金流結餘,淨資產\n";
             const rows = document.querySelectorAll('#event-log-body tr');
             rows.forEach(row => {
@@ -673,26 +777,27 @@
                 const line = Array.from(cols).map(c => c.innerText.replace(/[$,]/g, '')).join(',');
                 csv += line + "\n";
             });
-            
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url;
-            link.download = `軍旅財務戰略報表_${new Date().toISOString().slice(0,10)}.csv`;
+            link.href = URL.createObjectURL(blob);
+            link.download = `軍旅財務報表_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
         }
 
         // Init
         document.addEventListener('DOMContentLoaded', () => {
-            loadData(); // Auto Load
-            addCustomAllowance();
+            initScenarioStore();
+            addCustomAllowance(); // UI init
             
+            // Bind inputs to auto-refresh
             document.body.addEventListener('input', (e) => {
                 if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
-                    runSimulation();
+                    orchestrateSimulation();
                 }
             });
-            runSimulation();
+            
+            // Initial Run
+            orchestrateSimulation();
         });
     </script>
 </body>
