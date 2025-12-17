@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍官職涯財務戰情室 | 決策旗艦版 v2.2</title>
+    <title>軍官職涯財務戰情室 | 決策旗艦版 v2.3 (Debugged)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
@@ -58,7 +58,7 @@
             <div class="w-9 h-9 bg-military-gold rounded text-military-900 flex items-center justify-center font-black font-serif text-xl shadow-inner">ROC</div>
             <div>
                 <h1 class="text-xl font-bold tracking-wider leading-tight">軍官職涯財務戰情室</h1>
-                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.2</p>
+                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.3</p>
             </div>
         </div>
         <div class="flex gap-2">
@@ -75,10 +75,10 @@
                 
                 <div class="bg-slate-100 p-1.5 rounded-lg flex gap-1 mb-4 shadow-inner border border-slate-200">
                     <button onclick="switchScenario('A')" id="btn-scen-A" class="flex-1 py-2 text-xs font-bold rounded-md transition-all flex justify-center items-center gap-2 tab-active shadow-sm">
-                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> 戰略 A
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> 戰略 A (主方案)
                     </button>
                     <button onclick="switchScenario('B')" id="btn-scen-B" class="flex-1 py-2 text-xs font-bold rounded-md transition-all flex justify-center items-center gap-2 tab-inactive">
-                        <span class="w-2 h-2 rounded-full bg-slate-400"></span> 戰略 B
+                        <span class="w-2 h-2 rounded-full bg-slate-400"></span> 戰略 B (對照組)
                     </button>
                 </div>
 
@@ -130,9 +130,7 @@
                         <h3 class="section-label text-blue-900 border-l-blue-600 mb-0">02. 生活消費明細</h3>
                         <span class="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">月支: <span id="total-expense-display">--</span></span>
                     </div>
-                    
                     <div id="expense-items-container" class="space-y-2"></div>
-                    
                     <button onclick="addExpenseItem()" class="w-full mt-3 text-[10px] text-blue-600 border border-dashed border-blue-300 rounded py-1.5 hover:bg-blue-50 transition">
                         + 新增支出項目 (系統計入通膨)
                     </button>
@@ -146,7 +144,7 @@
 
                     <div class="bg-white p-3 rounded border border-green-200 shadow-sm mb-3">
                         <div class="flex justify-between items-end mb-2">
-                            <label class="text-[11px] font-bold text-green-800">💰 薪資提撥投入 (槓桿)</label>
+                            <label class="text-[11px] font-bold text-green-800">💰 薪資提撥 (槓桿)</label>
                             <div class="text-right">
                                 <span id="slider-percent-display" class="text-lg font-black text-green-600">30%</span>
                                 <span class="text-[10px] text-slate-400"> of 月薪 ≒ </span>
@@ -161,9 +159,8 @@
                         </div>
                     </div>
 
-                    <p class="text-[10px] text-slate-400 mb-2">額外固定投資項目 (Fixed Amount)</p>
+                    <p class="text-[10px] text-slate-400 mb-2">額外固定投資 (Fixed)</p>
                     <div id="invest-items-container" class="space-y-2"></div>
-
                     <button onclick="addInvestItem()" class="w-full mt-3 text-[10px] text-green-600 border border-dashed border-green-300 rounded py-1.5 hover:bg-green-50 transition">
                         + 新增固定投資項目 (如: 儲蓄險)
                     </button>
@@ -190,7 +187,7 @@
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
                         </label>
                     </div>
-                    <div id="housing-inputs" class="space-y-2 opacity-50 pointer-events-none transition-all duration-300">
+                    <div id="housing-inputs" class="space-y-2 hidden transition-all duration-300">
                         <div class="grid grid-cols-2 gap-2">
                             <div><label class="text-[10px] text-slate-500 font-bold">購屋時間 (第N年)</label><input type="number" id="buyYear" value="10" class="input-field w-full rounded p-1 text-sm"></div>
                             <div><label class="text-[10px] text-slate-500 font-bold">房產總價 (萬)</label><input type="number" id="housePriceWan" value="1500" class="input-field w-full rounded p-1 text-sm font-bold text-orange-800"></div>
@@ -264,10 +261,11 @@
                                 <th class="px-4 py-3 whitespace-nowrap">年度</th>
                                 <th class="px-4 py-3 whitespace-nowrap">階級</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">稅後年收</th>
+                                <th class="px-4 py-3 whitespace-nowrap text-right">房貸支出</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">總支出</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">總投資</th>
                                 <th class="px-4 py-3 whitespace-nowrap text-right">現金流結餘</th>
-                                <th class="px-4 py-3 whitespace-nowrap text-right">淨資產</th>
+                                <th class="px-4 py-3 whitespace-nowrap text-right">淨資產總額</th>
                             </tr>
                         </thead>
                         <tbody id="event-log-body" class="divide-y divide-slate-100"></tbody>
@@ -300,12 +298,12 @@
         let charts = {};
         let counters = { allow: 0, exp: 0, inv: 0 };
 
-        // 2. Scenario Store
+        // 2. Scenario & List Store
         function initScenarioStore() {
             const defaultParams = {
                 targetRank: 'M2', serviceYears: 20, inflationRate: 2.0, salaryRaiseRate: 1.0, returnRate: 6.0,
                 buyHouseToggle: false, buyYear: 10, housePriceWan: 1500, downPaymentPct: 20, mortgageRate: 2.2, loanTerm: 30, houseAppreciation: 1.5,
-                investSliderPct: 30, // New Slider Default
+                investSliderPct: 30,
                 allowances: [{val: 5000, start: 5, end: 10}],
                 expenses: [{name: '基本開銷', val: 12000}, {name: '房租', val: 6000}],
                 investments: [{name: '儲蓄險', val: 3000}]
@@ -356,7 +354,7 @@
                 mortgageRate: document.getElementById('mortgageRate').value,
                 loanTerm: document.getElementById('loanTerm').value,
                 houseAppreciation: document.getElementById('houseAppreciation').value,
-                investSliderPct: document.getElementById('investSlider').value, // Slider Save
+                investSliderPct: document.getElementById('investSlider').value,
                 allowances: collectList('allowance-row', 'allow-val'),
                 expenses: collectList('expense-row', 'exp-val'),
                 investments: collectList('invest-row', 'inv-val')
@@ -369,31 +367,29 @@
             const fields = ['targetRank', 'serviceYears', 'inflationRate', 'salaryRaiseRate', 'returnRate', 'buyYear', 'housePriceWan', 'downPaymentPct', 'mortgageRate', 'loanTerm', 'houseAppreciation', 'investSlider'];
             fields.forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; });
             
+            // Housing Toggle Logic (Fixed: Class based)
             document.getElementById('buyHouseToggle').checked = data.buyHouseToggle;
-            toggleHousingModule();
-            updateSliderDisplay(); // Trigger slider UI update
+            const hInputs = document.getElementById('housing-inputs');
+            if(data.buyHouseToggle) hInputs.classList.remove('hidden');
+            else hInputs.classList.add('hidden');
+
+            updateSliderDisplay(); 
 
             document.getElementById('custom-allowances-container').innerHTML = '';
-            (data.allowances || []).forEach(a => addCustomAllowance(a));
+            (data.allowances || []).forEach(a => addCustomAllowance(a, true));
             document.getElementById('expense-items-container').innerHTML = '';
-            (data.expenses || []).forEach(a => addExpenseItem(a));
+            (data.expenses || []).forEach(a => addExpenseItem(a, true));
             document.getElementById('invest-items-container').innerHTML = '';
-            (data.investments || []).forEach(a => addInvestItem(a));
+            (data.investments || []).forEach(a => addInvestItem(a, true));
         }
 
-        // 3. UI Helpers
         function updateSliderDisplay() {
             const val = document.getElementById('investSlider').value;
             document.getElementById('slider-percent-display').innerText = val + '%';
-            
-            // Calculate a rough amount based on Target Rank for immediate feedback
             const rank = document.getElementById('targetRank').value;
             const rData = REAL_SALARY_STRUCTURE[rank];
-            // Approx simple net estimation for display only
             const estNet = (rData.base + rData.pro_add + rData.food_add + VOLUNTEER_ADDITION) * 0.95; 
-            const estAmt = Math.round(estNet * (val/100));
-            document.getElementById('slider-amount-display').innerText = formatMoney(estAmt);
-            
+            document.getElementById('slider-amount-display').innerText = formatMoney(Math.round(estNet * (val/100)));
             orchestrateSimulation();
         }
 
@@ -405,13 +401,21 @@
             orchestrateSimulation();
         }
 
+        function toggleHousingModule() {
+            const isChecked = document.getElementById('buyHouseToggle').checked;
+            const inputs = document.getElementById('housing-inputs');
+            if (isChecked) inputs.classList.remove('hidden');
+            else inputs.classList.add('hidden');
+            orchestrateSimulation();
+        }
+
+        // 3. Row Builders (with skipSim flag)
         function createRowHtml(id, type, data) {
             const name = data?.name || (type === 'exp' ? '固定支出' : (type === 'inv' ? '定期定額' : '加給'));
             const val = data?.val || 5000;
             const color = type === 'exp' ? 'blue' : (type === 'inv' ? 'green' : 'slate');
             const valClass = type === 'exp' ? 'exp-val' : (type === 'inv' ? 'inv-val' : 'allow-val');
             const rowClass = type === 'exp' ? 'expense-row' : (type === 'inv' ? 'invest-row' : 'allowance-row');
-            
             let extra = '';
             if(type === 'allow') {
                 const s = data?.start || 5; const e = data?.end || 10;
@@ -420,9 +424,9 @@
             return `<div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-[10px] bg-${color}-50 p-1 rounded ${rowClass}"><div class="col-span-${type==='allow'?4:7}"><input type="text" value="${name}" class="w-full border-b border-slate-300 bg-transparent px-1 item-name"></div><div class="col-span-3"><input type="number" value="${val}" class="w-full border-b border-slate-300 bg-transparent px-1 text-right ${valClass}"></div>${extra}<div class="col-span-${type==='allow'?1:2} text-center"><button onclick="document.getElementById('${id}').remove(); orchestrateSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div></div>`;
         }
 
-        function addCustomAllowance(d){ counters.allow++; document.getElementById('custom-allowances-container').insertAdjacentHTML('beforeend', createRowHtml(`allow-${counters.allow}`, 'allow', d)); }
-        function addExpenseItem(d){ counters.exp++; document.getElementById('expense-items-container').insertAdjacentHTML('beforeend', createRowHtml(`exp-${counters.exp}`, 'exp', d)); orchestrateSimulation(); }
-        function addInvestItem(d){ counters.inv++; document.getElementById('invest-items-container').insertAdjacentHTML('beforeend', createRowHtml(`inv-${counters.inv}`, 'inv', d)); orchestrateSimulation(); }
+        function addCustomAllowance(d, skipSim=false){ counters.allow++; document.getElementById('custom-allowances-container').insertAdjacentHTML('beforeend', createRowHtml(`allow-${counters.allow}`, 'allow', d)); if(!skipSim) orchestrateSimulation(); }
+        function addExpenseItem(d, skipSim=false){ counters.exp++; document.getElementById('expense-items-container').insertAdjacentHTML('beforeend', createRowHtml(`exp-${counters.exp}`, 'exp', d)); if(!skipSim) orchestrateSimulation(); }
+        function addInvestItem(d, skipSim=false){ counters.inv++; document.getElementById('invest-items-container').insertAdjacentHTML('beforeend', createRowHtml(`inv-${counters.inv}`, 'inv', d)); if(!skipSim) orchestrateSimulation(); }
 
         // 4. Core Logic
         function calculateScenarioData(params) {
@@ -439,7 +443,7 @@
                 mortgageRate: parseFloat(params.mortgageRate)/100 || 0.022,
                 loanTerm: parseInt(params.loanTerm) || 30,
                 houseGrowth: parseFloat(params.houseAppreciation)/100 || 0.015,
-                investSliderPct: parseFloat(params.investSliderPct)/100 || 0, // Slider Value
+                investSliderPct: parseFloat(params.investSliderPct)/100 || 0,
                 allowances: params.allowances || [],
                 expenses: params.expenses || [],
                 investments: params.investments || []
@@ -452,8 +456,6 @@
             let liquidAsset = 0, houseValue = 0, loanBalance = 0, monthlyMortgagePayment = 0, hasBoughtHouse = false;
             const targetIdx = RANK_ORDER.indexOf(p.targetRank);
             const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
-            
-            // For Total Display Summation
             let totalSimulatedInvest = 0; 
 
             for (let y = 1; y <= p.years; y++) {
@@ -479,19 +481,11 @@
                     if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
                 }
 
-                // *** HYBRID CALCULATION ***
-                // 1. Dynamic Salary Allocation (Slider)
                 const dynamicInvest = netMonthly * p.investSliderPct;
-                // 2. Fixed Item Investments
-                const fixedInvest = baseFixedInv;
-                
-                // Total Monthly Investment
-                const totalMonthlyInv = dynamicInvest + fixedInvest;
-                if(y === 1) totalSimulatedInvest = totalMonthlyInv; // Capture first year for display
+                const totalMonthlyInv = dynamicInvest + baseFixedInv;
+                if(y === 1) totalSimulatedInvest = totalMonthlyInv;
 
-                // Expenses adjust for inflation
                 const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
-
                 const annualIncome = netMonthly * 13.5;
                 const annualExpense = currentMonthlyExp * 12;
                 const annualInvest = totalMonthlyInv * 12;
@@ -524,7 +518,7 @@
             updateUI((currentScenario === 'A') ? resA : resB, (currentScenario === 'A') ? resB : resA);
         }
         function forceRefresh() { orchestrateSimulation(); }
-        
+
         function updateUI(res, compareRes) {
             const h = res.history; const last = h.netAsset.length - 1;
             document.getElementById('total-expense-display').innerText = formatMoney(res.baseMonthlyExp);
@@ -584,7 +578,6 @@
         }
 
         function formatMoney(n) { return (isNaN(n) ? '--' : (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('zh-TW')); }
-        function toggleHousingModule() { const c=document.getElementById('buyHouseToggle').checked; document.getElementById('housing-inputs').classList.toggle('opacity-50', !c); document.getElementById('housing-inputs').classList.toggle('pointer-events-none', !c); }
         function exportCSV() {
             let csv = "\uFEFF年度,階級,稅後年收,房貸支出,總支出,總投資,現金流結餘,淨資產\n";
             document.querySelectorAll('#event-log-body tr').forEach(r => csv += Array.from(r.querySelectorAll('td')).map(c => c.innerText.replace(/[$,]/g, '')).join(',') + "\n");
