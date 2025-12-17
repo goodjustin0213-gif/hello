@@ -1,19 +1,13 @@
 /**
  * 軍官職涯財務戰情室 (Strategic Financial Command Center)
- * 核心邏輯腳本 v2.2 (Slider Edition)
- * * 主要功能：
- * 1. 投資槓桿滑桿 (Salary Percentage Slider)
- * 2. 混合投資運算 (Slider % + Fixed Items)
- * 3. 細項支出/加給管理
- * 4. AB 雙方案即時對照
- * 5. 購屋戰略模組 (資產負債表模擬)
+ * 核心邏輯腳本 v2.3 (Final Debugged Version)
  */
 
 // =========================================================
-// 1. 全域資料庫與狀態管理 (Global Data & State)
+// 1. 全域資料庫與狀態管理 (Global Data)
 // =========================================================
 
-// 薪資結構：依據 2025 年生效俸額表 (含預估)
+// 薪資結構表 (依據 2025 年生效俸額表，含預估值)
 const REAL_SALARY_STRUCTURE = {
     'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 1, annual_growth: 0.015, max_years: 12 }, 
     'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 3, annual_growth: 0.015, max_years: 12 },
@@ -30,11 +24,11 @@ const VOLUNTEER_ADDITION = 15000;
 const PENSION_RATE = 0.14; 
 const INDIVIDUAL_PENSION_RATIO = 0.35; 
 
-// 狀態管理
+// 應用程式狀態
 let currentScenario = 'A';
 let scenarioData = { A: {}, B: {} };
 let charts = {};
-// ID 計數器
+// 唯一 ID 計數器
 let counters = { allow: 0, exp: 0, inv: 0 };
 
 // =========================================================
@@ -42,28 +36,35 @@ let counters = { allow: 0, exp: 0, inv: 0 };
 // =========================================================
 
 function initScenarioStore() {
+    // 預設參數
     const defaultParams = {
         targetRank: 'M2', serviceYears: 20, inflationRate: 2.0, salaryRaiseRate: 1.0, returnRate: 6.0,
         buyHouseToggle: false, buyYear: 10, housePriceWan: 1500, downPaymentPct: 20, mortgageRate: 2.2, loanTerm: 30, houseAppreciation: 1.5,
-        investSliderPct: 30, // 滑桿預設值 (30%)
+        investSliderPct: 30, // 滑桿預設 30%
         allowances: [{val: 5000, start: 5, end: 10}],
         expenses: [{name: '基本開銷', val: 12000}, {name: '房租', val: 6000}],
-        investments: [{name: '儲蓄險', val: 3000}] // 這裡只放固定金額項目
+        investments: [{name: '儲蓄險', val: 3000}]
     };
+    
+    // 初始化 A 與 B
     scenarioData.A = JSON.parse(JSON.stringify(defaultParams));
     scenarioData.B = JSON.parse(JSON.stringify(defaultParams));
     
-    // 設定對照組差異
+    // 設定 B 方案預設差異
     scenarioData.B.serviceYears = 25;
     scenarioData.B.returnRate = 4.0; 
-    scenarioData.B.investSliderPct = 40; // 對照組存比較多
+    scenarioData.B.investSliderPct = 40;
 }
 
 function switchScenario(scen) {
+    // 1. 儲存當前畫面
     saveInputsToMemory(currentScenario);
+    
+    // 2. 切換狀態
     currentScenario = scen;
     document.getElementById('current-scen-label').innerText = `EDITING: ${scen}`;
     
+    // 3. 更新按鈕樣式
     const btnA = document.getElementById('btn-scen-A');
     const btnB = document.getElementById('btn-scen-B');
     if(scen === 'A') {
@@ -74,10 +75,14 @@ function switchScenario(scen) {
         btnA.className = btnA.className.replace('tab-active', 'tab-inactive');
     }
     
+    // 4. 讀取新方案數據
     loadMemoryToInputs(scen);
+    
+    // 5. 執行運算
     orchestrateSimulation();
 }
 
+// 收集動態列表數據
 function collectList(className, valClass) {
     const arr = [];
     document.querySelectorAll('.' + className).forEach(row => {
@@ -85,12 +90,14 @@ function collectList(className, valClass) {
         const val = parseInt(row.querySelector('.' + valClass).value) || 0;
         const start = row.querySelector('.allow-start') ? parseInt(row.querySelector('.allow-start').value) : 0;
         const end = row.querySelector('.allow-end') ? parseInt(row.querySelector('.allow-end').value) : 99;
+        
         if(className === 'allowance-row') arr.push({val, start, end});
         else arr.push({name, val});
     });
     return arr;
 }
 
+// 將 UI 儲存至記憶體
 function saveInputsToMemory(scen) {
     scenarioData[scen] = {
         targetRank: document.getElementById('targetRank').value,
@@ -105,54 +112,67 @@ function saveInputsToMemory(scen) {
         mortgageRate: document.getElementById('mortgageRate').value,
         loanTerm: document.getElementById('loanTerm').value,
         houseAppreciation: document.getElementById('houseAppreciation').value,
-        investSliderPct: document.getElementById('investSlider').value, // 儲存滑桿數值
+        investSliderPct: document.getElementById('investSlider').value,
         allowances: collectList('allowance-row', 'allow-val'),
         expenses: collectList('expense-row', 'exp-val'),
         investments: collectList('invest-row', 'inv-val')
     };
 }
 
+// 將記憶體載入至 UI
 function loadMemoryToInputs(scen) {
     const data = scenarioData[scen];
     if(!data) return;
     
+    // 基礎欄位
     const fields = ['targetRank', 'serviceYears', 'inflationRate', 'salaryRaiseRate', 'returnRate', 'buyYear', 'housePriceWan', 'downPaymentPct', 'mortgageRate', 'loanTerm', 'houseAppreciation', 'investSlider'];
     fields.forEach(id => { 
-        // 對應 investSlider 到記憶體中的 investSliderPct
-        if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
+        if(document.getElementById(id)) {
+            // 特殊處理滑桿 ID
+            document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
+        }
     });
     
-    document.getElementById('buyHouseToggle').checked = data.buyHouseToggle;
-    toggleHousingModule();
-    updateSliderDisplay(); // 更新滑桿顯示文字
+    // 購屋模組開關與顯示邏輯 (修復版)
+    const toggle = document.getElementById('buyHouseToggle');
+    const housingInputs = document.getElementById('housing-inputs');
+    toggle.checked = data.buyHouseToggle;
+    
+    if(toggle.checked) {
+        housingInputs.classList.remove('hidden');
+    } else {
+        housingInputs.classList.add('hidden');
+    }
 
-    // 重建列表
+    updateSliderDisplay(); // 更新滑桿文字
+
+    // 重建動態列表 (傳入 true 以避免重建時重複觸發運算)
     document.getElementById('custom-allowances-container').innerHTML = '';
-    (data.allowances || []).forEach(a => addCustomAllowance(a));
+    (data.allowances || []).forEach(a => addCustomAllowance(a, true));
+
     document.getElementById('expense-items-container').innerHTML = '';
-    (data.expenses || []).forEach(a => addExpenseItem(a));
+    (data.expenses || []).forEach(a => addExpenseItem(a, true));
+
     document.getElementById('invest-items-container').innerHTML = '';
-    (data.investments || []).forEach(a => addInvestItem(a));
+    (data.investments || []).forEach(a => addInvestItem(a, true));
 }
 
 // =========================================================
-// 3. UI Helpers (Slider & Lists)
+// 3. UI 互動與輔助 (UI Interactions)
 // =========================================================
 
-// 更新滑桿顯示與金額預估
+// 滑桿連動顯示
 function updateSliderDisplay() {
     const val = document.getElementById('investSlider').value;
     document.getElementById('slider-percent-display').innerText = val + '%';
     
-    // 取得當前目標階級的概略月薪，做為使用者參考用 (非精確計算)
+    // 概算金額僅供 UI 顯示
     const rank = document.getElementById('targetRank').value;
     const rData = REAL_SALARY_STRUCTURE[rank];
-    // 粗估淨額: (本俸+專加+伙食+志願役) * 95%
     const estNet = (rData.base + rData.pro_add + rData.food_add + VOLUNTEER_ADDITION) * 0.95; 
     const estAmt = Math.round(estNet * (val/100));
     document.getElementById('slider-amount-display').innerText = formatMoney(estAmt);
     
-    // 觸發運算
     orchestrateSimulation();
 }
 
@@ -164,6 +184,16 @@ function setRisk(level) {
     orchestrateSimulation();
 }
 
+// 購屋開關 (修復版：使用 hidden)
+function toggleHousingModule() {
+    const isChecked = document.getElementById('buyHouseToggle').checked;
+    const inputs = document.getElementById('housing-inputs');
+    if (isChecked) inputs.classList.remove('hidden');
+    else inputs.classList.add('hidden');
+    orchestrateSimulation();
+}
+
+// 建立列表 HTML
 function createRowHtml(id, type, data) {
     const name = data?.name || (type === 'exp' ? '固定支出' : (type === 'inv' ? '定期定額' : '加給'));
     const val = data?.val || 5000;
@@ -176,15 +206,22 @@ function createRowHtml(id, type, data) {
         const s = data?.start || 5; const e = data?.end || 10;
         extra = `<div class="col-span-2"><input type="number" value="${s}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-start"></div><div class="col-span-2"><input type="number" value="${e}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-end"></div>`;
     }
-    return `<div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-[10px] bg-${color}-50 p-1 rounded ${rowClass}"><div class="col-span-${type==='allow'?4:7}"><input type="text" value="${name}" class="w-full border-b border-slate-300 bg-transparent px-1 item-name"></div><div class="col-span-3"><input type="number" value="${val}" class="w-full border-b border-slate-300 bg-transparent px-1 text-right ${valClass}"></div>${extra}<div class="col-span-${type==='allow'?1:2} text-center"><button onclick="document.getElementById('${id}').remove(); orchestrateSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div></div>`;
+    
+    return `
+    <div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-[10px] bg-${color}-50 p-1 rounded ${rowClass}">
+        <div class="col-span-${type==='allow'?4:7}"><input type="text" value="${name}" class="w-full border-b border-slate-300 bg-transparent px-1 item-name"></div>
+        <div class="col-span-3"><input type="number" value="${val}" class="w-full border-b border-slate-300 bg-transparent px-1 text-right ${valClass}"></div>
+        ${extra}
+        <div class="col-span-${type==='allow'?1:2} text-center"><button onclick="document.getElementById('${id}').remove(); orchestrateSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div>
+    </div>`;
 }
 
-function addCustomAllowance(d){ counters.allow++; document.getElementById('custom-allowances-container').insertAdjacentHTML('beforeend', createRowHtml(`allow-${counters.allow}`, 'allow', d)); }
-function addExpenseItem(d){ counters.exp++; document.getElementById('expense-items-container').insertAdjacentHTML('beforeend', createRowHtml(`exp-${counters.exp}`, 'exp', d)); orchestrateSimulation(); }
-function addInvestItem(d){ counters.inv++; document.getElementById('invest-items-container').insertAdjacentHTML('beforeend', createRowHtml(`inv-${counters.inv}`, 'inv', d)); orchestrateSimulation(); }
+function addCustomAllowance(d, skipSim=false){ counters.allow++; document.getElementById('custom-allowances-container').insertAdjacentHTML('beforeend', createRowHtml(`allow-${counters.allow}`, 'allow', d)); if(!skipSim) orchestrateSimulation(); }
+function addExpenseItem(d, skipSim=false){ counters.exp++; document.getElementById('expense-items-container').insertAdjacentHTML('beforeend', createRowHtml(`exp-${counters.exp}`, 'exp', d)); if(!skipSim) orchestrateSimulation(); }
+function addInvestItem(d, skipSim=false){ counters.inv++; document.getElementById('invest-items-container').insertAdjacentHTML('beforeend', createRowHtml(`inv-${counters.inv}`, 'inv', d)); if(!skipSim) orchestrateSimulation(); }
 
 // =========================================================
-// 4. 核心模擬引擎 (Hybrid Calculation)
+// 4. 核心運算引擎 (Simulation Core)
 // =========================================================
 
 function calculateScenarioData(params) {
@@ -201,12 +238,13 @@ function calculateScenarioData(params) {
         mortgageRate: parseFloat(params.mortgageRate)/100 || 0.022,
         loanTerm: parseInt(params.loanTerm) || 30,
         houseGrowth: parseFloat(params.houseAppreciation)/100 || 0.015,
-        investSliderPct: parseFloat(params.investSliderPct)/100 || 0, // 讀取滑桿百分比
+        investSliderPct: parseFloat(params.investSliderPct)/100 || 0,
         allowances: params.allowances || [],
         expenses: params.expenses || [],
         investments: params.investments || []
     };
 
+    // 計算固定項目的總和
     const baseMonthlyExp = p.expenses.reduce((sum, item) => sum + item.val, 0);
     const baseFixedInv = p.investments.reduce((sum, item) => sum + item.val, 0);
 
@@ -215,11 +253,10 @@ function calculateScenarioData(params) {
     const targetIdx = RANK_ORDER.indexOf(p.targetRank);
     const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
     
-    // 用於顯示第一年的預估總投資額
-    let totalSimulatedInvestFirstYear = 0; 
+    let totalSimulatedInvest = 0; 
 
     for (let y = 1; y <= p.years; y++) {
-        // 強制退伍與晉升邏輯
+        // 退伍與晉升檢查
         if (y > REAL_SALARY_STRUCTURE[currentRank].max_years) { forceRetired = true; break; }
         const rankIdx = RANK_ORDER.indexOf(currentRank);
         if (yearOfRank >= REAL_SALARY_STRUCTURE[currentRank].promotion_years && rankIdx < targetIdx) { currentRank = RANK_ORDER[rankIdx + 1]; yearOfRank = 0; }
@@ -244,25 +281,18 @@ function calculateScenarioData(params) {
             if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
         }
 
-        // *** 混合投資邏輯 (Hybrid Calculation) ***
-        // 1. 動態薪資提撥 (Slider): 隨薪資成長而增加
-        const dynamicInvest = netMonthly * p.investSliderPct;
-        // 2. 固定項目投資 (List): 保持固定金額 (使用者可手動調整清單)
-        const fixedInvest = baseFixedInv;
-        
-        const totalMonthlyInv = dynamicInvest + fixedInvest;
-        if(y === 1) totalSimulatedInvestFirstYear = totalMonthlyInv; // 紀錄第一年供顯示
+        // *** 混合投資邏輯 ***
+        const dynamicInvest = netMonthly * p.investSliderPct; // 滑桿
+        const totalMonthlyInv = dynamicInvest + baseFixedInv; // 加上固定投資
+        if(y === 1) totalSimulatedInvest = totalMonthlyInv;
 
-        // 支出隨通膨成長
-        const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
+        const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1); // 支出通膨
 
-        // 現金流匯總
         const annualIncome = netMonthly * 13.5;
         const annualExpense = currentMonthlyExp * 12;
         const annualInvest = totalMonthlyInv * 12;
         const netCashFlow = annualIncome - annualExpense - annualInvest - yearMortgageCost;
 
-        // 複利滾存
         liquidAsset = liquidAsset * (1 + p.returnRate) + annualInvest + netCashFlow;
         const netAsset = liquidAsset + houseValue - loanBalance;
 
@@ -279,13 +309,11 @@ function calculateScenarioData(params) {
     if (history.labels.length >= 20) {
         pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
     }
-    
-    // 返回 baseMonthlyInv 為第一年的總預估投資額
-    return { history, pension, params: p, baseMonthlyExp, baseMonthlyInv: totalSimulatedInvestFirstYear };
+    return { history, pension, params: p, baseMonthlyExp, baseMonthlyInv: totalSimulatedInvest };
 }
 
 // =========================================================
-// 5. 運算指揮與 UI 更新
+// 5. 運算協調與更新 UI
 // =========================================================
 
 function orchestrateSimulation() {
@@ -299,28 +327,28 @@ function forceRefresh() { orchestrateSimulation(); }
 function updateUI(res, compareRes) {
     const h = res.history; const last = h.netAsset.length - 1;
     
-    // 更新側邊欄金額 (顯示第一年預估值)
+    // 更新側邊欄統計
     document.getElementById('total-expense-display').innerText = formatMoney(res.baseMonthlyExp);
     document.getElementById('total-invest-display').innerText = formatMoney(res.baseMonthlyInv);
     
-    // KPI
+    // KPI 卡片
     const diff = h.netAsset[last] - compareRes.history.netAsset[compareRes.history.netAsset.length - 1];
     document.getElementById('total-asset').innerText = formatMoney(h.netAsset[last]);
     document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-green-500':'text-red-500'} font-bold">${(diff>=0?'+':'') + formatMoney(diff)}</span>`;
     document.getElementById('pension-monthly').innerText = res.pension > 0 ? formatMoney(res.pension) : "未達門檻";
     
-    // Housing
+    // 購屋狀態
     const hDiv = document.getElementById('housing-status-display');
     if (res.params.buyHouse) hDiv.innerHTML = `<div class="mt-2 text-xs text-slate-500 space-y-1"><div class="flex justify-between"><span>市值:</span> <span class="font-bold text-orange-700">${formatMoney(h.house[last])}</span></div><div class="flex justify-between"><span>剩貸:</span> <span class="font-bold text-red-600">-${formatMoney(h.loan[last])}</span></div></div>`;
     else hDiv.innerHTML = `<p class="text-xl font-bold text-slate-300 mt-2">未啟用購屋模組</p>`;
 
-    // Warning
+    // 警示條
     const negYears = h.logs.filter(l => l.netAsset < 0).length;
     const sb = document.getElementById('status-bar');
     if(negYears>0) { sb.classList.remove('hidden'); document.getElementById('warn-scen').innerText = currentScenario; }
     else sb.classList.add('hidden');
 
-    // Table
+    // 表格
     const tbody = document.getElementById('event-log-body'); tbody.innerHTML = '';
     h.logs.forEach(l => tbody.insertAdjacentHTML('beforeend', `<tr><td class="px-4 py-3 text-slate-500">Y${l.y}</td><td class="px-4 py-3 font-bold text-military-900">${l.rank}</td><td class="px-4 py-3 text-right">${formatMoney(l.income)}</td><td class="px-4 py-3 text-right text-orange-500">${formatMoney(l.expense)}</td><td class="px-4 py-3 text-right text-green-600">${formatMoney(l.invest)}</td><td class="px-4 py-3 text-right font-bold ${l.cashflow<0?'text-red-600':'text-blue-600'}">${formatMoney(l.cashflow)}</td><td class="px-4 py-3 text-right font-bold">${formatMoney(l.netAsset)}</td></tr>`));
 
@@ -361,11 +389,11 @@ function renderCharts(res, compRes) {
 }
 
 // =========================================================
-// 6. Helpers & Init
+// 6. 初始化與事件 (Init)
 // =========================================================
 
 function formatMoney(n) { return (isNaN(n) ? '--' : (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('zh-TW')); }
-function toggleHousingModule() { const c=document.getElementById('buyHouseToggle').checked; document.getElementById('housing-inputs').classList.toggle('opacity-50', !c); document.getElementById('housing-inputs').classList.toggle('pointer-events-none', !c); }
+
 function exportCSV() {
     let csv = "\uFEFF年度,階級,稅後年收,房貸支出,總支出,總投資,現金流結餘,淨資產\n";
     document.querySelectorAll('#event-log-body tr').forEach(r => csv += Array.from(r.querySelectorAll('td')).map(c => c.innerText.replace(/[$,]/g, '')).join(',') + "\n");
@@ -373,6 +401,11 @@ function exportCSV() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initScenarioStore(); loadMemoryToInputs('A'); orchestrateSimulation();
-    document.body.addEventListener('input', (e) => { if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') orchestrateSimulation(); });
+    initScenarioStore(); 
+    loadMemoryToInputs('A'); 
+    orchestrateSimulation();
+    
+    document.body.addEventListener('input', (e) => { 
+        if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') orchestrateSimulation(); 
+    });
 });
