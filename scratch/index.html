@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍官職涯財務戰情室 | 決策旗艦版 v2.4</title>
+    <title>軍人職涯薪資規劃決策支援系統 | 決策旗艦版 v2.5</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
@@ -59,7 +59,7 @@
             <div class="w-9 h-9 bg-military-gold rounded text-military-900 flex items-center justify-center font-black font-serif text-xl shadow-inner">ROC</div>
             <div>
                 <h1 class="text-xl font-bold tracking-wider leading-tight">軍人職涯薪資規劃決策支援系統</h1>
-                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.4</p>
+                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.5</p>
             </div>
             <div class="red-ink text-xl -right-24 top-2 rotate-[-5deg]">極機密</div>
         </div>
@@ -131,36 +131,36 @@
                 <div class="bg-blue-50/30 p-4 rounded border border-blue-100 relative">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="section-label text-blue-900 border-l-blue-600 mb-0">02. 生活消費明細</h3>
-                        <span class="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">月支: <span id="total-expense-display">--</span></span>
+                        <span class="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">月支(首年): <span id="total-expense-display">--</span></span>
                     </div>
+                    
+                    <div class="red-ink text-xl right-2 top-10 rotate-[5deg]">省點花！</div>
+
                     <div id="expense-items-container" class="space-y-2"></div>
                     <button onclick="addExpenseItem()" class="w-full mt-3 text-[10px] text-blue-600 border border-dashed border-blue-300 rounded py-1.5 hover:bg-blue-50 transition">
-                        + 新增支出項目 (自動通膨)
+                        + 新增支出項目 (系統計入通膨)
                     </button>
                 </div>
 
                 <div class="bg-green-50/30 p-4 rounded border border-green-100 relative">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="section-label text-green-900 border-l-green-600 mb-0">03. 投資理財配置</h3>
-                        <span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded">總月投: <span id="total-invest-display">--</span></span>
+                        <span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded">月投(首年): <span id="total-invest-display">--</span></span>
                     </div>
 
                     <div class="bg-white p-3 rounded border border-green-200 shadow-sm mb-3 relative">
-                        <div class="red-ink text-xl -right-2 -top-3 rotate-[10deg]">存越多越好！</div>
+                        <div class="red-ink text-2xl -left-2 -top-4 rotate-[-10deg]">重點！</div>
                         
                         <div class="flex justify-between items-end mb-2">
                             <label class="text-[11px] font-bold text-green-800">💰 每月薪資提撥比例</label>
                             <div class="text-right">
                                 <span id="slider-percent-display" class="text-lg font-black text-green-600">30%</span>
-                                <span class="text-[10px] text-slate-400"> (起薪約 </span>
-                                <span id="slider-amount-display" class="text-xs font-bold text-slate-600">--</span>
-                                <span class="text-[10px] text-slate-400">)</span>
                             </div>
                         </div>
                         <input type="range" id="investSlider" min="0" max="90" step="1" value="30" class="w-full h-2 bg-green-100 rounded-lg appearance-none cursor-pointer" oninput="updateSliderDisplay()">
                         <div class="flex justify-between text-[9px] text-slate-400 mt-1">
                             <span>0%</span>
-                            <span>月薪佔比 (隨階級自動增加)</span>
+                            <span>月薪佔比 (金額隨階級自動增加)</span>
                             <span>90%</span>
                         </div>
                     </div>
@@ -194,6 +194,8 @@
                         </label>
                     </div>
                     
+                    <div class="red-ink text-lg right-14 top-0 rotate-[10deg]">慎重！</div>
+
                     <div id="housing-inputs" class="space-y-2 hidden transition-all duration-300">
                         <div class="grid grid-cols-2 gap-2">
                             <div><label class="text-[10px] text-slate-500 font-bold">購屋時間 (第N年)</label><input type="number" id="buyYear" value="10" class="input-field w-full rounded p-1 text-sm"></div>
@@ -233,13 +235,15 @@
                     <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">方案 A 預估淨資產</p>
                     <div class="flex items-baseline gap-2 mt-1"><p id="total-asset" class="text-3xl font-serif font-black text-military-900">--</p><span class="text-xs font-bold text-slate-400 bg-slate-100 px-1 rounded">名目</span></div>
                     <p id="comp-asset" class="text-xs text-slate-400 mt-2">B 方案差異: --</p>
-                    <div class="red-ink text-2xl right-2 top-10 rotate-[10deg]">財務自由！</div>
+                    <div class="ink-circle w-full h-24 left-0 top-4"></div>
+                    <div class="red-ink text-2xl right-2 top-10 rotate-[10deg]">夠了嗎？</div>
                 </div>
                 <div class="bg-white p-5 rounded shadow-sm border-t-4 border-green-600 relative overflow-hidden">
                     <div class="absolute right-[-10px] top-[-10px] text-[100px] text-green-600 opacity-5 rotate-12 font-serif">P</div>
                     <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">終身俸 (月退)</p>
                     <div class="flex items-baseline gap-2 mt-1"><p id="pension-monthly" class="text-3xl font-serif font-black text-green-700">--</p></div>
                     <p id="pension-sub" class="text-[10px] text-slate-400 mt-2">--</p>
+                    <div class="red-ink text-lg right-2 bottom-2 rotate-[-5deg]">養老命脈！</div>
                 </div>
                 <div class="bg-white p-5 rounded shadow-sm border-t-4 border-orange-500 relative overflow-hidden">
                     <div class="absolute right-[-10px] top-[-10px] text-[100px] text-orange-500 opacity-5 rotate-12 font-serif">H</div>
@@ -252,7 +256,7 @@
                 <div class="bg-white p-4 rounded shadow-sm border border-slate-200 relative">
                     <h4 class="font-bold text-military-900 mb-4 border-b pb-2 flex justify-between items-center"><span>📊 雙方案資產對照</span><div class="flex gap-2 text-[10px]"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600"></span> 方案 A</span><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400"></span> 方案 B</span></div></h4>
                     <div class="h-64"><canvas id="assetCompareChart"></canvas></div>
-                    <div class="red-ink text-lg left-10 top-16 rotate-[-10deg] opacity-80">複利效應！</div>
+                    <div class="red-ink text-lg left-1/2 top-10 rotate-[-10deg] opacity-80">差距很大！</div>
                 </div>
                 <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
                     <h4 class="font-bold text-military-900 mb-4 border-b pb-2 flex justify-between items-center"><span>📉 通膨侵蝕分析 (方案 A)</span><span class="text-[10px] font-normal text-slate-400">名目 vs 實質</span></h4>
@@ -261,6 +265,7 @@
             </div>
 
             <div class="bg-white rounded shadow-sm border border-slate-200 overflow-hidden mb-10 relative">
+                <div class="red-ink text-xl right-10 top-2 rotate-[5deg]">這張表要印出來！</div>
                 <div class="bg-military-800 p-3 flex justify-between items-center">
                     <h4 class="font-serif font-bold text-white text-sm">📑 方案 A 財務明細 (Event Log)</h4>
                 </div>
@@ -331,8 +336,13 @@
             document.getElementById('current-scen-label').innerText = `EDITING: ${scen}`;
             const btnA = document.getElementById('btn-scen-A');
             const btnB = document.getElementById('btn-scen-B');
-            if(scen === 'A') { btnA.className = btnA.className.replace('tab-inactive', 'tab-active'); btnB.className = btnB.className.replace('tab-active', 'tab-inactive'); }
-            else { btnB.className = btnB.className.replace('tab-inactive', 'tab-active'); btnA.className = btnA.className.replace('tab-active', 'tab-inactive'); }
+            if(scen === 'A') {
+                btnA.className = btnA.className.replace('tab-inactive', 'tab-active');
+                btnB.className = btnB.className.replace('tab-active', 'tab-inactive');
+            } else {
+                btnB.className = btnB.className.replace('tab-inactive', 'tab-active');
+                btnA.className = btnA.className.replace('tab-active', 'tab-inactive');
+            }
             loadMemoryToInputs(scen);
             orchestrateSimulation();
         }
@@ -398,10 +408,7 @@
         function updateSliderDisplay() {
             const val = document.getElementById('investSlider').value;
             document.getElementById('slider-percent-display').innerText = val + '%';
-            // 這裡改用 S2 少尉起薪來做即時顯示，符合使用者直覺
-            const rData = REAL_SALARY_STRUCTURE['S2'];
-            const estNet = (rData.base + rData.pro_add + rData.food_add + VOLUNTEER_ADDITION) * 0.95; 
-            document.getElementById('slider-amount-display').innerText = formatMoney(Math.round(estNet * (val/100)));
+            // 移除金額顯示相關邏輯
             orchestrateSimulation();
         }
 
@@ -535,23 +542,29 @@
 
         function updateUI(res, compareRes) {
             const h = res.history; const last = h.netAsset.length - 1;
+            
+            // 更新側邊欄金額 (顯示第一年預估值)
             document.getElementById('total-expense-display').innerText = formatMoney(res.baseMonthlyExp);
             document.getElementById('total-invest-display').innerText = formatMoney(res.baseMonthlyInv);
             
+            // KPI 卡片
             const diff = h.netAsset[last] - compareRes.history.netAsset[compareRes.history.netAsset.length - 1];
             document.getElementById('total-asset').innerText = formatMoney(h.netAsset[last]);
             document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-green-500':'text-red-500'} font-bold">${(diff>=0?'+':'') + formatMoney(diff)}</span>`;
             document.getElementById('pension-monthly').innerText = res.pension > 0 ? formatMoney(res.pension) : "未達門檻";
             
+            // 購屋狀態
             const hDiv = document.getElementById('housing-status-display');
             if (res.params.buyHouse) hDiv.innerHTML = `<div class="mt-2 text-xs text-slate-500 space-y-1"><div class="flex justify-between"><span>市值:</span> <span class="font-bold text-orange-700">${formatMoney(h.house[last])}</span></div><div class="flex justify-between"><span>剩貸:</span> <span class="font-bold text-red-600">-${formatMoney(h.loan[last])}</span></div></div>`;
             else hDiv.innerHTML = `<p class="text-xl font-bold text-slate-300 mt-2">未啟用購屋模組</p>`;
 
+            // 警示條
             const negYears = h.logs.filter(l => l.netAsset < 0).length;
             const sb = document.getElementById('status-bar');
             if(negYears>0) { sb.classList.remove('hidden'); document.getElementById('warn-scen').innerText = currentScenario; }
             else sb.classList.add('hidden');
 
+            // 表格
             const tbody = document.getElementById('event-log-body'); tbody.innerHTML = '';
             h.logs.forEach(l => tbody.insertAdjacentHTML('beforeend', `<tr><td class="px-4 py-3 text-slate-500">Y${l.y}</td><td class="px-4 py-3 font-bold text-military-900">${l.rank}</td><td class="px-4 py-3 text-right">${formatMoney(l.income)}</td><td class="px-4 py-3 text-right text-orange-500">${formatMoney(l.expense)}</td><td class="px-4 py-3 text-right text-green-600">${formatMoney(l.invest)}</td><td class="px-4 py-3 text-right font-bold ${l.cashflow<0?'text-red-600':'text-blue-600'}">${formatMoney(l.cashflow)}</td><td class="px-4 py-3 text-right font-bold">${formatMoney(l.netAsset)}</td></tr>`));
 
