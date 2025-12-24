@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>空軍官校職涯財務決策支援系統 | v5.0 戰略指揮版</title>
+    <title>空軍官校職涯財務決策支援系統 | v5.1 專業版</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@700;900&family=Ma+Shan+Zheng&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
@@ -23,7 +23,6 @@
                     fontFamily: {
                         sans: ['"Noto Sans TC"', 'sans-serif'],
                         mono: ['"JetBrains Mono"', 'monospace'],
-                        hand: ['"Ma Shan Zheng"', 'cursive'],
                     },
                     backgroundImage: {
                         'tactical-grid': "radial-gradient(#334155 1px, transparent 1px)",
@@ -48,21 +47,19 @@
         .scroller::-webkit-scrollbar-track { background: #020617; }
         .scroller::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 3px; }
 
-        /* 3. 專業級輸入框與選單 (修復顯示問題) */
+        /* 3. 專業級輸入框與選單 */
         input, select {
-            appearance: none; /* 移除預設外觀 */
+            appearance: none;
             background-color: #1e293b; 
             border: 1px solid #475569; 
             color: white; 
             transition: all 0.2s;
         }
-        /* 強制設定 option 顏色，解決瀏覽器白底問題 */
         select option {
             background-color: #0f172a;
             color: white;
             padding: 10px;
         }
-        /* 自訂下拉箭頭 */
         select {
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
             background-position: right 0.5rem center;
@@ -90,9 +87,7 @@
         }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #475569; border-radius: 2px; }
 
-        /* 5. 特效與動畫 */
-        .red-ink { font-family: 'Ma Shan Zheng', cursive; color: #ef4444; position: absolute; z-index: 50; pointer-events: none; text-shadow: 1px 1px 0px rgba(0,0,0,0.8); transform: rotate(-2deg); mix-blend-mode: normal; }
-        
+        /* 5. 玻璃擬態特效 */
         .glass-panel {
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(8px);
@@ -116,7 +111,7 @@
                 <h1 class="text-white text-lg font-bold tracking-widest uppercase">空軍官校職涯財務決策支援系統</h1>
                 <div class="flex items-center gap-2">
                     <span class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span>
-                    <p class="text-slate-400 text-[10px] tracking-[0.3em] font-mono">STRATEGIC COMMAND v5.0</p>
+                    <p class="text-slate-400 text-[10px] tracking-[0.3em] font-mono">STRATEGIC COMMAND v5.1</p>
                 </div>
             </div>
         </div>
@@ -257,7 +252,6 @@
                     <h4 class="font-bold text-red-400 text-sm">戰略風險警告 (方案 <span id="warn-scen">A</span>)</h4>
                     <p class="text-slate-300 text-xs">偵測到財務赤字，請調整支出或投資策略。</p>
                 </div>
-                <div class="red-ink text-xl right-20 top-2 rotate-[-5deg]">注意赤字!</div>
             </div>
 
             <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 mb-6">
@@ -270,7 +264,6 @@
                             <span class="text-[10px] bg-slate-700 px-1 rounded text-slate-300">名目</span>
                         </div>
                         <p id="comp-asset" class="text-xs text-slate-400 mt-2">--</p>
-                        <div class="red-ink text-2xl right-2 top-8 rotate-[10deg] opacity-80">目標!</div>
                     </div>
 
                     <div class="glass-panel p-4 rounded border-t-4 border-green-500 relative">
@@ -280,7 +273,6 @@
                             <p id="pension-monthly" class="text-2xl font-mono font-bold text-green-400">--</p>
                         </div>
                         <p class="text-[10px] text-slate-400 mt-2">依服役年資試算</p>
-                        <div class="red-ink text-sm right-2 bottom-2 rotate-[-5deg] opacity-80">退休保障</div>
                     </div>
 
                     <div class="glass-panel p-4 rounded border-t-4 border-orange-500 relative">
@@ -342,7 +334,6 @@
                         <tbody id="event-log-body" class="divide-y divide-slate-800 font-mono text-slate-300"></tbody>
                     </table>
                 </div>
-                <div class="red-ink text-lg right-10 top-2 rotate-[5deg] z-20 text-white opacity-90">關鍵數據</div>
             </div>
         </main>
     </div>
@@ -415,10 +406,9 @@
         function switchScenario(scen) {
             saveInputsToMemory(currentScenario);
             currentScenario = scen;
-            document.getElementById('current-scen-label').innerText = `EDITING: ${scen}`;
             const btnA = document.getElementById('btn-scen-A');
             const btnB = document.getElementById('btn-scen-B');
-            const activeClass = "py-2 text-xs font-bold rounded-sm text-white bg-airforce shadow transition flex items-center justify-center gap-2 border border-blue-500/50";
+            const activeClass = "py-2 text-xs font-bold rounded-sm text-white bg-airforce shadow-[0_0_10px_rgba(0,48,135,0.4)] transition flex items-center justify-center gap-2 border border-blue-500/50";
             const inactiveClass = "py-2 text-xs font-bold rounded-sm text-slate-500 hover:text-slate-300 transition flex items-center justify-center gap-2 border border-slate-700";
             if(scen === 'A') { btnA.className = activeClass; btnB.className = inactiveClass; } 
             else { btnB.className = activeClass; btnA.className = inactiveClass; }
