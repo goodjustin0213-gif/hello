@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 | 決策旗艦版 v2.5</title>
+    <title>軍人職涯薪資規劃決策支援系統 | 決策旗艦版 v2.6</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
@@ -29,21 +30,27 @@
     <style>
         body { background-color: #f1f5f9; font-family: 'Noto Sans TC', sans-serif; color: #334155; }
         h1, h2, h3, h4 { font-family: 'Noto Serif TC', serif; }
+        
+        /* 捲軸美化 */
         .scrollable-content { height: calc(100vh - 4rem); overflow-y: auto; scrollbar-width: thin; }
         .scrollable-content::-webkit-scrollbar { width: 6px; }
         .scrollable-content::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
-        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         
+        /* 輸入框樣式 */
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .input-field { transition: all 0.2s; border: 1px solid #cbd5e1; }
         .input-field:focus { border-color: #0f172a; box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1); outline: none; }
         .section-label { border-left: 4px solid #d4af37; padding-left: 0.75rem; color: #0f172a; font-weight: 800; margin-bottom: 0.75rem; font-size: 0.95rem; }
+        
+        /* 方案按鈕樣式 */
         .tab-active { background-color: #0f172a; color: white; border-color: #0f172a; }
         .tab-inactive { background-color: white; color: #64748b; border-color: #cbd5e1; }
         
         /* 紅墨水特效 */
         .red-ink { font-family: 'Ma Shan Zheng', cursive; color: #dc2626; position: absolute; z-index: 50; pointer-events: none; opacity: 0.9; transform: rotate(-2deg); text-shadow: 1px 1px 0px rgba(255,255,255,0.5); }
+        .ink-circle { border: 3px solid #dc2626; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; position: absolute; z-index: 49; pointer-events: none; }
         
-        /* Slider Styling */
+        /* 滑桿樣式 */
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #16a34a; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: all 0.1s; }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
@@ -59,14 +66,16 @@
             <div class="w-9 h-9 bg-military-gold rounded text-military-900 flex items-center justify-center font-black font-serif text-xl shadow-inner">ROC</div>
             <div>
                 <h1 class="text-xl font-bold tracking-wider leading-tight">軍人職涯薪資規劃決策支援系統</h1>
-                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.5</p>
+                <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase">Strategic Financial Command Center v2.6</p>
             </div>
             <div class="red-ink text-xl -right-24 top-2 rotate-[-5deg]">極機密</div>
+            <div class="ink-circle w-32 h-10 -right-28 top-0"></div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 relative">
             <button onclick="exportCSV()" class="no-print bg-military-gold hover:bg-yellow-500 text-military-900 font-bold text-xs px-3 py-1.5 rounded flex items-center gap-1 transition shadow-md">
                 📥 匯出報表
             </button>
+            <div class="red-ink text-sm right-28 top-8 w-32">務必存檔備份!</div>
         </div>
     </header>
 
@@ -109,6 +118,7 @@
                                 <span class="absolute right-2 top-1.5 text-xs text-slate-400">年</span>
                             </div>
                         </div>
+                        <div class="red-ink text-lg -right-2 top-8 rotate-[-15deg]">目標設高點!</div>
                     </div>
                     
                     <div class="grid grid-cols-2 gap-3 mb-2 relative">
@@ -124,7 +134,7 @@
 
                     <div id="custom-allowances-container" class="space-y-2 mt-3"></div>
                     <button onclick="addCustomAllowance()" class="w-full mt-2 text-[10px] text-slate-500 border border-dashed border-slate-400 rounded py-1 hover:bg-slate-100 transition">
-                        + 新增職務/外島加給
+                        + 新增職務/外島加給 (手動)
                     </button>
                 </div>
 
@@ -133,8 +143,7 @@
                         <h3 class="section-label text-blue-900 border-l-blue-600 mb-0">02. 生活消費明細</h3>
                         <span class="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">月支(首年): <span id="total-expense-display">--</span></span>
                     </div>
-                    
-                    <div class="red-ink text-xl right-2 top-10 rotate-[5deg]">省點花！</div>
+                    <div class="red-ink text-xl right-2 top-10 rotate-[5deg]">省點花!</div>
 
                     <div id="expense-items-container" class="space-y-2"></div>
                     <button onclick="addExpenseItem()" class="w-full mt-3 text-[10px] text-blue-600 border border-dashed border-blue-300 rounded py-1.5 hover:bg-blue-50 transition">
@@ -149,7 +158,8 @@
                     </div>
 
                     <div class="bg-white p-3 rounded border border-green-200 shadow-sm mb-3 relative">
-                        <div class="red-ink text-2xl -left-2 -top-4 rotate-[-10deg]">重點！</div>
+                        <div class="red-ink text-2xl -left-2 -top-4 rotate-[-10deg]">重點!</div>
+                        <div class="ink-circle w-20 h-12 -left-4 -top-2"></div>
                         
                         <div class="flex justify-between items-end mb-2">
                             <label class="text-[11px] font-bold text-green-800">💰 每月薪資提撥比例</label>
@@ -160,12 +170,12 @@
                         <input type="range" id="investSlider" min="0" max="90" step="1" value="30" class="w-full h-2 bg-green-100 rounded-lg appearance-none cursor-pointer" oninput="updateSliderDisplay()">
                         <div class="flex justify-between text-[9px] text-slate-400 mt-1">
                             <span>0%</span>
-                            <span>月薪佔比 (金額隨階級自動增加)</span>
+                            <span>月薪佔比 (金額隨薪資成長)</span>
                             <span>90%</span>
                         </div>
                     </div>
 
-                    <p class="text-[10px] text-slate-400 mb-2">額外固定金額投資 (如儲蓄險)</p>
+                    <p class="text-[10px] text-slate-400 mb-2">額外固定金額投資 (Fixed)</p>
                     <div id="invest-items-container" class="space-y-2"></div>
                     <button onclick="addInvestItem()" class="w-full mt-3 text-[10px] text-green-600 border border-dashed border-green-300 rounded py-1.5 hover:bg-green-50 transition">
                         + 新增固定投資項目
@@ -221,7 +231,7 @@
             </div>
         </aside>
 
-        <section class="w-full lg:flex-1 bg-slate-100 p-4 lg:p-6 scrollable-content">
+        <section class="w-full lg:flex-1 bg-slate-100 p-4 lg:p-6 scrollable-content relative">
             
             <div id="status-bar" class="hidden bg-red-50 border-l-4 border-red-600 text-red-800 p-4 mb-6 rounded shadow-sm flex items-start animate-pulse relative">
                 <span class="text-2xl mr-3">⚠️</span>
@@ -354,6 +364,7 @@
                 const val = parseInt(row.querySelector('.' + valClass).value) || 0;
                 const start = row.querySelector('.allow-start') ? parseInt(row.querySelector('.allow-start').value) : 0;
                 const end = row.querySelector('.allow-end') ? parseInt(row.querySelector('.allow-end').value) : 99;
+                
                 if(className === 'allowance-row') arr.push({val, start, end});
                 else arr.push({name, val});
             });
@@ -389,10 +400,15 @@
                 if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
             });
             
-            document.getElementById('buyHouseToggle').checked = data.buyHouseToggle;
-            const hInputs = document.getElementById('housing-inputs');
-            if(data.buyHouseToggle) hInputs.classList.remove('hidden');
-            else hInputs.classList.add('hidden');
+            const toggle = document.getElementById('buyHouseToggle');
+            const housingInputs = document.getElementById('housing-inputs');
+            toggle.checked = data.buyHouseToggle;
+            
+            if(toggle.checked) {
+                housingInputs.classList.remove('hidden');
+            } else {
+                housingInputs.classList.add('hidden');
+            }
 
             updateSliderDisplay(); 
 
@@ -408,7 +424,7 @@
         function updateSliderDisplay() {
             const val = document.getElementById('investSlider').value;
             document.getElementById('slider-percent-display').innerText = val + '%';
-            // 移除金額顯示相關邏輯
+            // 移除金額顯示
             orchestrateSimulation();
         }
 
@@ -475,7 +491,9 @@
             const targetIdx = RANK_ORDER.indexOf(p.targetRank);
             const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
             
-            let totalSimulatedInvest = 0; 
+            // 用於顯示第一年的預估總投資額
+            let firstYearMonthlyExp = 0;
+            let firstYearMonthlyInv = 0; 
 
             for (let y = 1; y <= p.years; y++) {
                 if (y > REAL_SALARY_STRUCTURE[currentRank].max_years) { forceRetired = true; break; }
@@ -503,9 +521,12 @@
                 // 核心邏輯：滑桿 % + 固定清單
                 const dynamicInvest = netMonthly * p.investSliderPct; 
                 const totalMonthlyInv = dynamicInvest + baseFixedInv; 
-                if(y === 1) totalSimulatedInvest = totalMonthlyInv;
-
                 const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
+
+                if(y === 1) {
+                    firstYearMonthlyExp = currentMonthlyExp;
+                    firstYearMonthlyInv = totalMonthlyInv;
+                }
 
                 const annualIncome = netMonthly * 13.5;
                 const annualExpense = currentMonthlyExp * 12;
@@ -528,7 +549,7 @@
             if (history.labels.length >= 20) {
                 pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
             }
-            return { history, pension, params: p, baseMonthlyExp, baseMonthlyInv: totalSimulatedInvest };
+            return { history, pension, params: p, firstYearMonthlyExp, firstYearMonthlyInv };
         }
 
         // 5. Orchestration
@@ -543,9 +564,9 @@
         function updateUI(res, compareRes) {
             const h = res.history; const last = h.netAsset.length - 1;
             
-            // 更新側邊欄金額 (顯示第一年預估值)
-            document.getElementById('total-expense-display').innerText = formatMoney(res.baseMonthlyExp);
-            document.getElementById('total-invest-display').innerText = formatMoney(res.baseMonthlyInv);
+            // 更新側邊欄金額 (顯示第一年金額作為參考)
+            document.getElementById('total-expense-display').innerText = formatMoney(res.firstYearMonthlyExp);
+            document.getElementById('total-invest-display').innerText = formatMoney(res.firstYearMonthlyInv);
             
             // KPI 卡片
             const diff = h.netAsset[last] - compareRes.history.netAsset[compareRes.history.netAsset.length - 1];
