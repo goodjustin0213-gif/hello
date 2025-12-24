@@ -1,10 +1,6 @@
 /**
- * 軍人職涯薪資規劃決策支援系統
- * 核心邏輯腳本 v2.6 (Final Release)
- * * Update Log:
- * - 修正投資滑桿顯示 (移除誤導性的起薪預估)
- * - 強化混合投資運算 (百分比 + 定額)
- * - 修復購屋模組版面跑位問題
+ * 軍官職涯財務戰情室 (Strategic Financial Command Center)
+ * 核心邏輯腳本 v3.0 (Tactical Dashboard Edition)
  */
 
 // =========================================================
@@ -12,7 +8,6 @@
 // =========================================================
 
 // 薪資結構表 (依據 2025 年生效俸額表，含預估值)
-// base: 本俸, pro_add: 專業/職務加給
 const REAL_SALARY_STRUCTURE = {
     'S2': { rank: '少尉', base: 22750, pro_add: 28000, promotion_years: 1, annual_growth: 0.015, max_years: 12 }, 
     'S3': { rank: '中尉', base: 25050, pro_add: 30000, promotion_years: 3, annual_growth: 0.015, max_years: 12 },
@@ -32,8 +27,7 @@ const INDIVIDUAL_PENSION_RATIO = 0.35; // 個人負擔比率
 // 應用程式狀態容器
 let currentScenario = 'A';
 let scenarioData = { A: {}, B: {} };
-let charts = {};
-// 唯一 ID 計數器
+let charts = {}; // 存放 Chart.js 實例 (compare, inflation, distribution)
 let counters = { allow: 0, exp: 0, inv: 0 };
 
 // =========================================================
@@ -67,17 +61,19 @@ function switchScenario(scen) {
     
     // 2. 切換狀態
     currentScenario = scen;
-    document.getElementById('current-scen-label').innerText = `EDITING: ${scen}`;
     
-    // 3. 更新按鈕樣式
+    // 3. 更新按鈕樣式 (戰術風格)
     const btnA = document.getElementById('btn-scen-A');
     const btnB = document.getElementById('btn-scen-B');
+    const activeClass = "py-2 text-xs font-bold rounded text-white bg-blue-600 shadow transition flex items-center justify-center gap-2";
+    const inactiveClass = "py-2 text-xs font-bold rounded text-slate-400 hover:text-white transition flex items-center justify-center gap-2";
+    
     if(scen === 'A') {
-        btnA.className = btnA.className.replace('tab-inactive', 'tab-active');
-        btnB.className = btnB.className.replace('tab-active', 'tab-inactive');
+        btnA.className = activeClass;
+        btnB.className = inactiveClass;
     } else {
-        btnB.className = btnB.className.replace('tab-inactive', 'tab-active');
-        btnA.className = btnA.className.replace('tab-active', 'tab-inactive');
+        btnB.className = activeClass;
+        btnA.className = inactiveClass;
     }
     
     // 4. 讀取新方案數據至畫面
@@ -133,12 +129,11 @@ function loadMemoryToInputs(scen) {
     const fields = ['targetRank', 'serviceYears', 'inflationRate', 'salaryRaiseRate', 'returnRate', 'buyYear', 'housePriceWan', 'downPaymentPct', 'mortgageRate', 'loanTerm', 'houseAppreciation', 'investSlider'];
     fields.forEach(id => { 
         if(document.getElementById(id)) {
-            // 特殊處理滑桿 ID 對應的資料欄位
             document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
         }
     });
     
-    // 購屋模組開關與顯示邏輯 (使用 hidden class 防止跑版)
+    // 購屋模組開關與顯示邏輯 (使用 hidden class)
     const toggle = document.getElementById('buyHouseToggle');
     const housingInputs = document.getElementById('housing-inputs');
     toggle.checked = data.buyHouseToggle;
@@ -149,7 +144,7 @@ function loadMemoryToInputs(scen) {
         housingInputs.classList.add('hidden');
     }
 
-    updateSliderDisplay(); // 更新滑桿文字
+    updateSliderDisplay(); 
 
     // 重建動態列表 (傳入 true 以避免重建時重複觸發運算)
     document.getElementById('custom-allowances-container').innerHTML = '';
@@ -166,7 +161,6 @@ function loadMemoryToInputs(scen) {
 // 3. UI 互動與輔助 (UI Interactions)
 // =========================================================
 
-// 滑桿連動顯示 (純百分比)
 function updateSliderDisplay() {
     const val = document.getElementById('investSlider').value;
     document.getElementById('slider-percent-display').innerText = val + '%';
@@ -181,7 +175,6 @@ function setRisk(level) {
     orchestrateSimulation();
 }
 
-// 購屋開關 (使用 hidden class)
 function toggleHousingModule() {
     const isChecked = document.getElementById('buyHouseToggle').checked;
     const inputs = document.getElementById('housing-inputs');
@@ -190,26 +183,27 @@ function toggleHousingModule() {
     orchestrateSimulation();
 }
 
-// 建立列表 HTML (動態生成)
+// 建立列表 HTML (戰術風格配色)
 function createRowHtml(id, type, data) {
     const name = data?.name || (type === 'exp' ? '固定支出' : (type === 'inv' ? '定期定額' : '加給'));
     const val = data?.val || 5000;
     const color = type === 'exp' ? 'blue' : (type === 'inv' ? 'green' : 'slate');
     const valClass = type === 'exp' ? 'exp-val' : (type === 'inv' ? 'inv-val' : 'allow-val');
     const rowClass = type === 'exp' ? 'expense-row' : (type === 'inv' ? 'invest-row' : 'allowance-row');
+    const inputBg = 'bg-navy-900 border border-navy-700 text-white';
     
     let extra = '';
     if(type === 'allow') {
         const s = data?.start || 5; const e = data?.end || 10;
-        extra = `<div class="col-span-2"><input type="number" value="${s}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-start"></div><div class="col-span-2"><input type="number" value="${e}" class="w-full border-b border-slate-300 bg-transparent px-1 text-center allow-end"></div>`;
+        extra = `<div class="col-span-2"><input type="number" value="${s}" class="w-full ${inputBg} px-1 text-center allow-start text-[10px]"></div><div class="col-span-2"><input type="number" value="${e}" class="w-full ${inputBg} px-1 text-center allow-end text-[10px]"></div>`;
     }
     
     return `
-    <div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-[10px] bg-${color}-50 p-1 rounded ${rowClass}">
-        <div class="col-span-${type==='allow'?4:7}"><input type="text" value="${name}" class="w-full border-b border-slate-300 bg-transparent px-1 item-name"></div>
-        <div class="col-span-3"><input type="number" value="${val}" class="w-full border-b border-slate-300 bg-transparent px-1 text-right ${valClass}"></div>
+    <div id="${id}" class="grid grid-cols-12 gap-1 items-center mb-1 text-[10px] bg-navy-800 p-1 rounded ${rowClass} border border-navy-700">
+        <div class="col-span-${type==='allow'?4:7}"><input type="text" value="${name}" class="w-full bg-transparent border-b border-slate-600 px-1 item-name text-slate-300"></div>
+        <div class="col-span-3"><input type="number" value="${val}" class="w-full bg-transparent border-b border-slate-600 px-1 text-right ${valClass} text-white"></div>
         ${extra}
-        <div class="col-span-${type==='allow'?1:2} text-center"><button onclick="document.getElementById('${id}').remove(); orchestrateSimulation()" class="text-red-400 hover:text-red-600 font-bold">×</button></div>
+        <div class="col-span-${type==='allow'?1:2} text-center"><button onclick="document.getElementById('${id}').remove(); orchestrateSimulation()" class="text-red-400 hover:text-red-300 font-bold">×</button></div>
     </div>`;
 }
 
@@ -250,9 +244,8 @@ function calculateScenarioData(params) {
     const targetIdx = RANK_ORDER.indexOf(p.targetRank);
     const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
     
-    // 用於顯示第一年的預估數據
-    let firstYearMonthlyExp = 0;
-    let firstYearMonthlyInv = 0; 
+    // 儲存第一年數據供顯示用 (For Dashboard KPI)
+    let firstYearExp = 0, firstYearInv = 0, firstYearNet = 0;
 
     for (let y = 1; y <= p.years; y++) {
         // 退伍與晉升檢查
@@ -260,18 +253,11 @@ function calculateScenarioData(params) {
         const rankIdx = RANK_ORDER.indexOf(currentRank);
         if (yearOfRank >= REAL_SALARY_STRUCTURE[currentRank].promotion_years && rankIdx < targetIdx) { currentRank = RANK_ORDER[rankIdx + 1]; yearOfRank = 0; }
 
-        // 薪資計算 (本俸+專加) * 俸級複利 * 調薪複利
+        // 薪資計算
         const rankData = REAL_SALARY_STRUCTURE[currentRank];
         const base = (rankData.base + rankData.pro_add) * Math.pow(1 + rankData.annual_growth, y - 1) * Math.pow(1 + p.raise, y - 1);
-        
-        // 加給計算
         let allowance = 0; p.allowances.forEach(a => { if(y >= a.start && y <= a.end) allowance += a.val; });
-        
-        // 應領總額 (本俸+專加+志願役+額外加給)
-        const gross = base + VOLUNTEER_ADDITION + allowance;
-        
-        // 實領 (扣除退撫金)
-        const netMonthly = Math.round(gross * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
+        const netMonthly = Math.round((base + rankData.food_add + VOLUNTEER_ADDITION + allowance) * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
         
         // 購屋邏輯
         let yearMortgageCost = 0;
@@ -287,31 +273,26 @@ function calculateScenarioData(params) {
             if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
         }
 
-        // *** 核心：混合投資邏輯 ***
-        // 1. 薪資提撥 (Slider): 隨著 netMonthly 成長而自動增加
-        const dynamicInvest = netMonthly * p.investSliderPct;
-        // 2. 總月投 = 薪資提撥 + 固定投資清單
-        const totalMonthlyInv = dynamicInvest + baseFixedInv;
-        
-        // 3. 月支出 = 基礎支出 * 通膨係數
+        // *** 混合投資邏輯 ***
+        const dynamicInvest = netMonthly * p.investSliderPct; 
+        const totalMonthlyInv = dynamicInvest + baseFixedInv; 
         const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
 
+        // 捕捉第一年數據供圓餅圖使用
         if(y === 1) {
-            firstYearMonthlyExp = currentMonthlyExp;
-            firstYearMonthlyInv = totalMonthlyInv;
+            firstYearExp = currentMonthlyExp;
+            firstYearInv = totalMonthlyInv;
+            firstYearNet = netMonthly;
         }
 
-        // 年度現金流結算 (13.5個月薪資)
         const annualIncome = netMonthly * 13.5;
         const annualExpense = currentMonthlyExp * 12;
         const annualInvest = totalMonthlyInv * 12;
         const netCashFlow = annualIncome - annualExpense - annualInvest - yearMortgageCost;
 
-        // 資產複利滾存
         liquidAsset = liquidAsset * (1 + p.returnRate) + annualInvest + netCashFlow;
         const netAsset = liquidAsset + houseValue - loanBalance;
 
-        // 紀錄歷史數據
         history.labels.push(`Y${y}`);
         history.netAsset.push(Math.round(netAsset));
         history.realAsset.push(Math.round(netAsset / Math.pow(1 + p.inflation, y)));
@@ -321,13 +302,12 @@ function calculateScenarioData(params) {
         yearOfRank++;
     }
     
-    // 終身俸試算 (概估)
+    // 終身俸試算
     let pension = 0;
     if (history.labels.length >= 20) {
         pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
     }
-    
-    return { history, pension, params: p, firstYearMonthlyExp, firstYearMonthlyInv };
+    return { history, pension, params: p, firstYearExp, firstYearInv, firstYearNet };
 }
 
 // =========================================================
@@ -345,20 +325,20 @@ function forceRefresh() { orchestrateSimulation(); }
 function updateUI(res, compareRes) {
     const h = res.history; const last = h.netAsset.length - 1;
     
-    // 更新側邊欄金額 (顯示第一年金額作為參考)
-    document.getElementById('total-expense-display').innerText = formatMoney(res.firstYearMonthlyExp);
-    document.getElementById('total-invest-display').innerText = formatMoney(res.firstYearMonthlyInv);
+    // 更新側邊欄金額 (顯示第一年)
+    document.getElementById('total-expense-display').innerText = formatMoney(res.firstYearExp);
+    document.getElementById('total-invest-display').innerText = formatMoney(res.firstYearInv);
     
     // KPI 卡片
     const diff = h.netAsset[last] - compareRes.history.netAsset[compareRes.history.netAsset.length - 1];
     document.getElementById('total-asset').innerText = formatMoney(h.netAsset[last]);
-    document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-green-500':'text-red-500'} font-bold">${(diff>=0?'+':'') + formatMoney(diff)}</span>`;
+    document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-success':'text-alert'} font-bold">${(diff>=0?'+':'') + formatMoney(diff)}</span>`;
     document.getElementById('pension-monthly').innerText = res.pension > 0 ? formatMoney(res.pension) : "未達門檻";
     
     // 購屋狀態
     const hDiv = document.getElementById('housing-status-display');
-    if (res.params.buyHouse) hDiv.innerHTML = `<div class="mt-2 text-xs text-slate-500 space-y-1"><div class="flex justify-between"><span>市值:</span> <span class="font-bold text-orange-700">${formatMoney(h.house[last])}</span></div><div class="flex justify-between"><span>剩貸:</span> <span class="font-bold text-red-600">-${formatMoney(h.loan[last])}</span></div></div>`;
-    else hDiv.innerHTML = `<p class="text-xl font-bold text-slate-300 mt-2">未啟用購屋模組</p>`;
+    if (res.params.buyHouse) hDiv.innerHTML = `<div class="mt-2 text-xs text-slate-500 space-y-1"><div class="flex justify-between"><span>市值:</span> <span class="font-bold text-orange-600">${formatMoney(h.house[last])}</span></div><div class="flex justify-between"><span>剩貸:</span> <span class="font-bold text-red-600">-${formatMoney(h.loan[last])}</span></div></div>`;
+    else hDiv.innerHTML = `<p class="text-xl font-bold text-slate-300 mt-2">未啟用</p>`;
 
     // 警示條
     const negYears = h.logs.filter(l => l.netAsset < 0).length;
@@ -368,15 +348,17 @@ function updateUI(res, compareRes) {
 
     // 表格
     const tbody = document.getElementById('event-log-body'); tbody.innerHTML = '';
-    h.logs.forEach(l => tbody.insertAdjacentHTML('beforeend', `<tr><td class="px-4 py-3 text-slate-500">Y${l.y}</td><td class="px-4 py-3 font-bold text-military-900">${l.rank}</td><td class="px-4 py-3 text-right">${formatMoney(l.income)}</td><td class="px-4 py-3 text-right text-orange-500">${formatMoney(l.expense)}</td><td class="px-4 py-3 text-right text-green-600">${formatMoney(l.invest)}</td><td class="px-4 py-3 text-right font-bold ${l.cashflow<0?'text-red-600':'text-blue-600'}">${formatMoney(l.cashflow)}</td><td class="px-4 py-3 text-right font-bold">${formatMoney(l.netAsset)}</td></tr>`));
+    h.logs.forEach(l => tbody.insertAdjacentHTML('beforeend', `<tr class="hover:bg-slate-50 transition"><td class="px-4 py-3 text-slate-500">Y${l.y}</td><td class="px-4 py-3 font-bold text-navy-900">${l.rank}</td><td class="px-4 py-3 text-right">${formatMoney(l.income)}</td><td class="px-4 py-3 text-right text-orange-500">${formatMoney(l.mortgage)}</td><td class="px-4 py-3 text-right text-slate-500">${formatMoney(l.expense)}</td><td class="px-4 py-3 text-right text-green-600">${formatMoney(l.invest)}</td><td class="px-4 py-3 text-right font-bold ${l.cashflow<0?'text-red-600':'text-blue-600'}">${formatMoney(l.cashflow)}</td><td class="px-4 py-3 text-right font-bold text-navy-900">${formatMoney(l.netAsset)}</td></tr>`));
 
     renderCharts(res, compareRes);
 }
 
 function renderCharts(res, compRes) {
     Chart.defaults.font.family = '"Noto Sans TC", sans-serif';
+    Chart.defaults.color = '#64748b';
     const h = res.history; const ch = compRes.history;
 
+    // 1. Line Chart
     if (charts.compare) charts.compare.destroy();
     const ctx1 = document.getElementById('assetCompareChart').getContext('2d');
     charts.compare = new Chart(ctx1, {
@@ -384,13 +366,14 @@ function renderCharts(res, compRes) {
         data: {
             labels: h.labels, 
             datasets: [
-                { label: `方案 ${currentScenario}`, data: h.netAsset, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.3 },
-                { label: `方案 ${currentScenario==='A'?'B':'A'}`, data: ch.netAsset, borderColor: '#94a3b8', borderWidth: 2, borderDash: [5,5], fill: false, tension: 0.3 }
+                { label: `方案 ${currentScenario}`, data: h.netAsset, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', borderWidth: 3, fill: true, tension: 0.3, pointRadius: 2 },
+                { label: `方案 ${currentScenario==='A'?'B':'A'}`, data: ch.netAsset, borderColor: '#94a3b8', borderWidth: 2, borderDash: [5,5], fill: false, tension: 0.3, pointRadius: 0 }
             ]
         },
-        options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
+        options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false } } }
     });
 
+    // 2. Inflation Area Chart
     if (charts.inflation) charts.inflation.destroy();
     const ctx2 = document.getElementById('inflationChart').getContext('2d');
     charts.inflation = new Chart(ctx2, {
@@ -398,11 +381,40 @@ function renderCharts(res, compRes) {
         data: {
             labels: h.labels,
             datasets: [
-                { label: '名目淨資產', data: h.netAsset, borderColor: '#94a3b8', borderWidth: 2 },
-                { label: '實質購買力', data: h.realAsset, borderColor: '#d4af37', backgroundColor: 'rgba(212, 175, 55, 0.1)', borderWidth: 3, fill: true }
+                { label: '名目', data: h.netAsset, borderColor: '#cbd5e1', borderWidth: 2, pointRadius: 0 },
+                { label: '實質 (購買力)', data: h.realAsset, borderColor: '#d4af37', backgroundColor: 'rgba(212, 175, 55, 0.2)', borderWidth: 3, fill: true, pointRadius: 2 }
             ]
         },
         options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
+    });
+
+    // 3. Distribution Pie Chart (First Year)
+    if (charts.distribution) charts.distribution.destroy();
+    const ctx3 = document.getElementById('distributionChart').getContext('2d');
+    const totalIn = res.firstYearNet;
+    const exp = res.firstYearExp;
+    const inv = res.firstYearInv;
+    const remain = Math.max(0, totalIn - exp - inv);
+    
+    charts.distribution = new Chart(ctx3, {
+        type: 'doughnut',
+        data: {
+            labels: ['生活支出', '投資理財', '現金結餘'],
+            datasets: [{
+                data: [exp, inv, remain],
+                backgroundColor: ['#3b82f6', '#10b981', '#cbd5e1'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            cutout: '70%',
+            plugins: { 
+                legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } 
+            } 
+        }
     });
 }
 
@@ -419,11 +431,6 @@ function exportCSV() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initScenarioStore(); 
-    loadMemoryToInputs('A'); 
-    orchestrateSimulation();
-    
-    document.body.addEventListener('input', (e) => { 
-        if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') orchestrateSimulation(); 
-    });
+    initScenarioStore(); loadMemoryToInputs('A'); orchestrateSimulation();
+    document.body.addEventListener('input', (e) => { if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') orchestrateSimulation(); });
 });
