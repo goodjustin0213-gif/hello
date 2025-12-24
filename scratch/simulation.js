@@ -1,6 +1,10 @@
 /**
- * 軍官職涯財務戰情室 (Strategic Financial Command Center)
- * 核心邏輯腳本 v2.5 (Red Ink / Precision Edition)
+ * 軍人職涯薪資規劃決策支援系統
+ * 核心邏輯腳本 v2.6 (Final Release)
+ * * Update Log:
+ * - 修正投資滑桿顯示 (移除誤導性的起薪預估)
+ * - 強化混合投資運算 (百分比 + 定額)
+ * - 修復購屋模組版面跑位問題
  */
 
 // =========================================================
@@ -8,23 +12,24 @@
 // =========================================================
 
 // 薪資結構表 (依據 2025 年生效俸額表，含預估值)
+// base: 本俸, pro_add: 專業/職務加給
 const REAL_SALARY_STRUCTURE = {
-    'S2': { rank: '少尉', base: 22750, pro_add: 28000, food_add: 2840, promotion_years: 1, annual_growth: 0.015, max_years: 12 }, 
-    'S3': { rank: '中尉', base: 25050, pro_add: 30000, food_add: 2840, promotion_years: 3, annual_growth: 0.015, max_years: 12 },
-    'S4': { rank: '上尉', base: 28880, pro_add: 35000, food_add: 2840, promotion_years: 4, annual_growth: 0.015, max_years: 17 }, 
-    'M1': { rank: '少校', base: 32710, pro_add: 45000, food_add: 2840, promotion_years: 4, annual_growth: 0.015, max_years: 22 }, 
-    'M2': { rank: '中校', base: 37310, pro_add: 55000, food_add: 2840, promotion_years: 4, annual_growth: 0.015, max_years: 26 }, 
-    'M3': { rank: '上校', base: 41900, pro_add: 65000, food_add: 2840, promotion_years: 6, annual_growth: 0.015, max_years: 30 }, 
-    'G1': { rank: '少將', base: 48030, pro_add: 70000, food_add: 2840, promotion_years: 4, annual_growth: 0.01, max_years: 35 }, 
-    'G2': { rank: '中將', base: 53390, pro_add: 80000, food_add: 2840, promotion_years: 3, annual_growth: 0.01, max_years: 38 }
+    'S2': { rank: '少尉', base: 22750, pro_add: 28000, promotion_years: 1, annual_growth: 0.015, max_years: 12 }, 
+    'S3': { rank: '中尉', base: 25050, pro_add: 30000, promotion_years: 3, annual_growth: 0.015, max_years: 12 },
+    'S4': { rank: '上尉', base: 28880, pro_add: 35000, promotion_years: 4, annual_growth: 0.015, max_years: 17 }, 
+    'M1': { rank: '少校', base: 32710, pro_add: 45000, promotion_years: 4, annual_growth: 0.015, max_years: 22 }, 
+    'M2': { rank: '中校', base: 37310, pro_add: 55000, promotion_years: 4, annual_growth: 0.015, max_years: 26 }, 
+    'M3': { rank: '上校', base: 41900, pro_add: 65000, promotion_years: 6, annual_growth: 0.015, max_years: 30 }, 
+    'G1': { rank: '少將', base: 48030, pro_add: 70000, promotion_years: 4, annual_growth: 0.01, max_years: 35 }, 
+    'G2': { rank: '中將', base: 53390, pro_add: 80000, promotion_years: 3, annual_growth: 0.01, max_years: 38 }
 };
 
 const RANK_ORDER = ['S2', 'S3', 'S4', 'M1', 'M2', 'M3', 'G1', 'G2'];
-const VOLUNTEER_ADDITION = 15000;
-const PENSION_RATE = 0.14; 
-const INDIVIDUAL_PENSION_RATIO = 0.35; 
+const VOLUNTEER_ADDITION = 15000; // 志願役加給
+const PENSION_RATE = 0.14;        // 退撫費率
+const INDIVIDUAL_PENSION_RATIO = 0.35; // 個人負擔比率
 
-// 應用程式狀態
+// 應用程式狀態容器
 let currentScenario = 'A';
 let scenarioData = { A: {}, B: {} };
 let charts = {};
@@ -36,11 +41,11 @@ let counters = { allow: 0, exp: 0, inv: 0 };
 // =========================================================
 
 function initScenarioStore() {
-    // 預設參數
+    // 預設參數 (A 方案)
     const defaultParams = {
         targetRank: 'M2', serviceYears: 20, inflationRate: 2.0, salaryRaiseRate: 1.0, returnRate: 6.0,
         buyHouseToggle: false, buyYear: 10, housePriceWan: 1500, downPaymentPct: 20, mortgageRate: 2.2, loanTerm: 30, houseAppreciation: 1.5,
-        investSliderPct: 30, // 滑桿預設 30%
+        investSliderPct: 30, // 預設提撥 30%
         allowances: [{val: 5000, start: 5, end: 10}],
         expenses: [{name: '基本開銷', val: 12000}, {name: '房租', val: 6000}],
         investments: [{name: '儲蓄險', val: 3000}]
@@ -50,14 +55,14 @@ function initScenarioStore() {
     scenarioData.A = JSON.parse(JSON.stringify(defaultParams));
     scenarioData.B = JSON.parse(JSON.stringify(defaultParams));
     
-    // 設定 B 方案預設差異
+    // 設定 B 方案預設差異 (對照組)
     scenarioData.B.serviceYears = 25;
     scenarioData.B.returnRate = 4.0; 
     scenarioData.B.investSliderPct = 40;
 }
 
 function switchScenario(scen) {
-    // 1. 儲存當前畫面
+    // 1. 儲存當前畫面至記憶體
     saveInputsToMemory(currentScenario);
     
     // 2. 切換狀態
@@ -75,14 +80,14 @@ function switchScenario(scen) {
         btnA.className = btnA.className.replace('tab-active', 'tab-inactive');
     }
     
-    // 4. 讀取新方案數據
+    // 4. 讀取新方案數據至畫面
     loadMemoryToInputs(scen);
     
     // 5. 執行運算
     orchestrateSimulation();
 }
 
-// 收集動態列表數據
+// 收集動態列表數據 (支出/收入/投資)
 function collectList(className, valClass) {
     const arr = [];
     document.querySelectorAll('.' + className).forEach(row => {
@@ -124,11 +129,11 @@ function loadMemoryToInputs(scen) {
     const data = scenarioData[scen];
     if(!data) return;
     
-    // 基礎欄位
+    // 基礎欄位還原
     const fields = ['targetRank', 'serviceYears', 'inflationRate', 'salaryRaiseRate', 'returnRate', 'buyYear', 'housePriceWan', 'downPaymentPct', 'mortgageRate', 'loanTerm', 'houseAppreciation', 'investSlider'];
     fields.forEach(id => { 
         if(document.getElementById(id)) {
-            // 特殊處理滑桿 ID
+            // 特殊處理滑桿 ID 對應的資料欄位
             document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
         }
     });
@@ -161,7 +166,7 @@ function loadMemoryToInputs(scen) {
 // 3. UI 互動與輔助 (UI Interactions)
 // =========================================================
 
-// 滑桿連動顯示 (純百分比，不顯示預估金額以免誤導)
+// 滑桿連動顯示 (純百分比)
 function updateSliderDisplay() {
     const val = document.getElementById('investSlider').value;
     document.getElementById('slider-percent-display').innerText = val + '%';
@@ -185,7 +190,7 @@ function toggleHousingModule() {
     orchestrateSimulation();
 }
 
-// 建立列表 HTML
+// 建立列表 HTML (動態生成)
 function createRowHtml(id, type, data) {
     const name = data?.name || (type === 'exp' ? '固定支出' : (type === 'inv' ? '定期定額' : '加給'));
     const val = data?.val || 5000;
@@ -245,7 +250,7 @@ function calculateScenarioData(params) {
     const targetIdx = RANK_ORDER.indexOf(p.targetRank);
     const history = { labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [] };
     
-    // 儲存第一年數據供顯示用
+    // 用於顯示第一年的預估數據
     let firstYearMonthlyExp = 0;
     let firstYearMonthlyInv = 0; 
 
@@ -255,11 +260,18 @@ function calculateScenarioData(params) {
         const rankIdx = RANK_ORDER.indexOf(currentRank);
         if (yearOfRank >= REAL_SALARY_STRUCTURE[currentRank].promotion_years && rankIdx < targetIdx) { currentRank = RANK_ORDER[rankIdx + 1]; yearOfRank = 0; }
 
-        // 薪資計算
+        // 薪資計算 (本俸+專加) * 俸級複利 * 調薪複利
         const rankData = REAL_SALARY_STRUCTURE[currentRank];
         const base = (rankData.base + rankData.pro_add) * Math.pow(1 + rankData.annual_growth, y - 1) * Math.pow(1 + p.raise, y - 1);
+        
+        // 加給計算
         let allowance = 0; p.allowances.forEach(a => { if(y >= a.start && y <= a.end) allowance += a.val; });
-        const netMonthly = Math.round((base + rankData.food_add + VOLUNTEER_ADDITION + allowance) * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
+        
+        // 應領總額 (本俸+專加+志願役+額外加給)
+        const gross = base + VOLUNTEER_ADDITION + allowance;
+        
+        // 實領 (扣除退撫金)
+        const netMonthly = Math.round(gross * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
         
         // 購屋邏輯
         let yearMortgageCost = 0;
@@ -275,8 +287,8 @@ function calculateScenarioData(params) {
             if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
         }
 
-        // *** 核心：動態投資邏輯 ***
-        // 1. 薪資提撥 = 當年度月薪 * 滑桿百分比
+        // *** 核心：混合投資邏輯 ***
+        // 1. 薪資提撥 (Slider): 隨著 netMonthly 成長而自動增加
         const dynamicInvest = netMonthly * p.investSliderPct;
         // 2. 總月投 = 薪資提撥 + 固定投資清單
         const totalMonthlyInv = dynamicInvest + baseFixedInv;
@@ -289,14 +301,17 @@ function calculateScenarioData(params) {
             firstYearMonthlyInv = totalMonthlyInv;
         }
 
+        // 年度現金流結算 (13.5個月薪資)
         const annualIncome = netMonthly * 13.5;
         const annualExpense = currentMonthlyExp * 12;
         const annualInvest = totalMonthlyInv * 12;
         const netCashFlow = annualIncome - annualExpense - annualInvest - yearMortgageCost;
 
+        // 資產複利滾存
         liquidAsset = liquidAsset * (1 + p.returnRate) + annualInvest + netCashFlow;
         const netAsset = liquidAsset + houseValue - loanBalance;
 
+        // 紀錄歷史數據
         history.labels.push(`Y${y}`);
         history.netAsset.push(Math.round(netAsset));
         history.realAsset.push(Math.round(netAsset / Math.pow(1 + p.inflation, y)));
@@ -306,6 +321,7 @@ function calculateScenarioData(params) {
         yearOfRank++;
     }
     
+    // 終身俸試算 (概估)
     let pension = 0;
     if (history.labels.length >= 20) {
         pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
