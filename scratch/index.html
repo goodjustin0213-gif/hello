@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>空軍官校職涯財務決策支援系統 | v6.0 戰略指揮官版</title>
+    <title>空軍官校職涯財務決策支援系統 | v7.0 最終修復版</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
                 extend: {
                     colors: {
                         navy: { 950: '#020617', 900: '#0f172a', 800: '#1e293b', 700: '#334155', 600: '#475569' },
-                        gold: { DEFAULT: '#cca43b', light: '#fcd34d', glow: 'rgba(204, 164, 59, 0.5)' },
+                        gold: { DEFAULT: '#cca43b', light: '#fcd34d' },
                         airforce: '#003087',
                     },
                     fontFamily: {
@@ -60,7 +60,7 @@
                 <h1 class="text-white text-lg font-bold tracking-widest uppercase">空軍官校職涯財務決策支援系統</h1>
                 <div class="flex items-center gap-2">
                     <span class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span>
-                    <p class="text-slate-400 text-[10px] tracking-[0.3em] font-mono">STRATEGIC COMMAND v6.0</p>
+                    <p class="text-slate-400 text-[10px] tracking-[0.3em] font-mono">STRATEGIC COMMAND v7.0</p>
                 </div>
             </div>
         </div>
@@ -141,19 +141,19 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                 <div class="glass-panel p-4 rounded h-[320px]">
                     <h4 class="text-sm font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1 flex justify-between"><span>📊 資產累積對照 (A vs B)</span></h4>
-                    <div class="h-[260px]"><canvas id="assetCompareChart"></canvas></div>
+                    <div style="height: 260px;"><canvas id="assetCompareChart"></canvas></div>
                 </div>
                 <div class="glass-panel p-4 rounded h-[320px]">
                     <h4 class="text-sm font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">💰 年度現金流結構 (Cashflow DNA)</h4>
-                    <div class="h-[260px]"><canvas id="cashflowChart"></canvas></div>
+                    <div style="height: 260px;"><canvas id="cashflowChart"></canvas></div>
                 </div>
                 <div class="glass-panel p-4 rounded h-[320px]">
                     <h4 class="text-sm font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">🏠 資產負債結構 (Wealth Composition)</h4>
-                    <div class="h-[260px]"><canvas id="wealthChart"></canvas></div>
+                    <div style="height: 260px;"><canvas id="wealthChart"></canvas></div>
                 </div>
                 <div class="glass-panel p-4 rounded h-[320px]">
                     <h4 class="text-sm font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">📉 通膨實質購買力 (Real Value)</h4>
-                    <div class="h-[260px]"><canvas id="inflationChart"></canvas></div>
+                    <div style="height: 260px;"><canvas id="inflationChart"></canvas></div>
                 </div>
             </div>
 
@@ -239,26 +239,35 @@
         }
 
         function switchScenario(scen) {
-            saveInputsToMemory(currentScenario);
-            currentScenario = scen;
-            const btnA = document.getElementById('btn-scen-A');
-            const btnB = document.getElementById('btn-scen-B');
-            const activeClass = "py-2 text-xs font-bold rounded-sm text-white bg-airforce shadow transition flex items-center justify-center gap-2 border border-blue-500/50";
-            const inactiveClass = "py-2 text-xs font-bold rounded-sm text-slate-500 hover:text-slate-300 transition flex items-center justify-center gap-2 border border-slate-700";
-            if(scen === 'A') { btnA.className = activeClass; btnB.className = inactiveClass; } 
-            else { btnB.className = activeClass; btnA.className = inactiveClass; }
-            document.getElementById('current-scen-label').innerText = `EDITING: SCENARIO ${scen}`;
-            loadMemoryToInputs(scen);
-            orchestrateSimulation();
+            try {
+                saveInputsToMemory(currentScenario);
+                currentScenario = scen;
+                const btnA = document.getElementById('btn-scen-A');
+                const btnB = document.getElementById('btn-scen-B');
+                const activeClass = "py-2 text-xs font-bold rounded-sm text-white bg-airforce shadow-[0_0_10px_rgba(0,48,135,0.4)] transition border border-blue-500/50";
+                const inactiveClass = "py-2 text-xs font-bold rounded-sm text-slate-500 hover:text-slate-300 transition border border-slate-700";
+                if(scen === 'A') { btnA.className = activeClass; btnB.className = inactiveClass; } 
+                else { btnB.className = activeClass; btnA.className = inactiveClass; }
+                document.getElementById('current-scen-label').innerText = `EDITING: SCENARIO ${scen}`;
+                loadMemoryToInputs(scen);
+                orchestrateSimulation();
+            } catch (e) { console.error("Switch Error:", e); }
+        }
+
+        function safeParseFloat(val) {
+            if(!val) return 0;
+            const clean = String(val).replace(/,/g, '');
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
         }
 
         function collectList(className, valClass) {
             const arr = [];
             document.querySelectorAll('.' + className).forEach(row => {
                 const name = row.querySelector('.item-name')?.value || '';
-                const val = Number(row.querySelector('.' + valClass).value) || 0; // Fix: Ensure Number
-                const start = row.querySelector('.allow-start') ? (Number(row.querySelector('.allow-start').value) || 0) : 0;
-                const end = row.querySelector('.allow-end') ? (Number(row.querySelector('.allow-end').value) || 99) : 99;
+                const val = safeParseFloat(row.querySelector('.' + valClass).value);
+                const start = row.querySelector('.allow-start') ? safeParseFloat(row.querySelector('.allow-start').value) : 0;
+                const end = row.querySelector('.allow-end') ? (safeParseFloat(row.querySelector('.allow-end').value) || 99) : 99;
                 if(className === 'allowance-row') arr.push({val, start, end, name});
                 else arr.push({name, val});
             });
@@ -268,18 +277,18 @@
         function saveInputsToMemory(scen) {
             scenarioData[scen] = {
                 targetRank: document.getElementById('targetRank').value,
-                serviceYears: Number(document.getElementById('serviceYears').value) || 20,
-                inflationRate: Number(document.getElementById('inflationRate').value) || 2.0,
-                salaryRaiseRate: Number(document.getElementById('salaryRaiseRate').value) || 1.0,
-                returnRate: Number(document.getElementById('returnRate').value) || 6.0,
+                serviceYears: safeParseFloat(document.getElementById('serviceYears').value) || 20,
+                inflationRate: safeParseFloat(document.getElementById('inflationRate').value) || 2.0,
+                salaryRaiseRate: safeParseFloat(document.getElementById('salaryRaiseRate').value) || 1.0,
+                returnRate: safeParseFloat(document.getElementById('returnRate').value) || 6.0,
                 buyHouseToggle: document.getElementById('buyHouseToggle').checked,
-                buyYear: Number(document.getElementById('buyYear').value) || 10,
-                housePriceWan: Number(document.getElementById('housePriceWan').value) || 1500,
-                downPaymentPct: Number(document.getElementById('downPaymentPct').value) || 20,
-                mortgageRate: Number(document.getElementById('mortgageRate').value) || 2.2,
-                loanTerm: Number(document.getElementById('loanTerm').value) || 30,
-                houseAppreciation: Number(document.getElementById('houseAppreciation').value) || 1.5,
-                investSliderPct: Number(document.getElementById('investSlider').value) || 30,
+                buyYear: safeParseFloat(document.getElementById('buyYear').value) || 10,
+                housePriceWan: safeParseFloat(document.getElementById('housePriceWan').value) || 1500,
+                downPaymentPct: safeParseFloat(document.getElementById('downPaymentPct').value) || 20,
+                mortgageRate: safeParseFloat(document.getElementById('mortgageRate').value) || 2.2,
+                loanTerm: safeParseFloat(document.getElementById('loanTerm').value) || 30,
+                houseAppreciation: safeParseFloat(document.getElementById('houseAppreciation').value) || 1.5,
+                investSliderPct: safeParseFloat(document.getElementById('investSlider').value) || 30,
                 allowances: collectList('allowance-row', 'allow-val'),
                 expenses: collectList('expense-row', 'exp-val'),
                 investments: collectList('invest-row', 'inv-val')
@@ -344,106 +353,110 @@
         function addExpenseItem(d, skipSim=false){ counters.exp++; document.getElementById('expense-items-container').insertAdjacentHTML('beforeend', createRowHtml(`exp-${counters.exp}`, 'exp', d)); if(!skipSim) orchestrateSimulation(); }
         function addInvestItem(d, skipSim=false){ counters.inv++; document.getElementById('invest-items-container').insertAdjacentHTML('beforeend', createRowHtml(`inv-${counters.inv}`, 'inv', d)); if(!skipSim) orchestrateSimulation(); }
 
-        // --- Core Simulation Logic (Fixed NaN) ---
+        // --- Core Simulation Logic ---
         function calculateScenarioData(params) {
-            // Defensive Copy & Default Values
-            const p = {
-                targetRank: params.targetRank,
-                years: Number(params.serviceYears) || 20,
-                inflation: (Number(params.inflationRate) || 2.0) / 100,
-                raise: (Number(params.salaryRaiseRate) || 1.0) / 100,
-                returnRate: (Number(params.returnRate) || 6.0) / 100,
-                buyHouse: params.buyHouseToggle,
-                buyYear: Number(params.buyYear) || 99,
-                housePrice: (Number(params.housePriceWan) || 0) * 10000,
-                downPct: (Number(params.downPaymentPct) || 20) / 100,
-                mortgageRate: (Number(params.mortgageRate) || 2.2) / 100,
-                loanTerm: Number(params.loanTerm) || 30,
-                houseGrowth: (Number(params.houseAppreciation) || 1.5) / 100,
-                investSliderPct: (Number(params.investSliderPct) || 30) / 100,
-                allowances: params.allowances || [],
-                expenses: params.expenses || [],
-                investments: params.investments || []
-            };
+            try {
+                // Defensive Parsing
+                const p = {
+                    targetRank: params.targetRank,
+                    years: safeParseFloat(params.serviceYears) || 20,
+                    inflation: (safeParseFloat(params.inflationRate) || 2.0) / 100,
+                    raise: (safeParseFloat(params.salaryRaiseRate) || 1.0) / 100,
+                    returnRate: (safeParseFloat(params.returnRate) || 6.0) / 100,
+                    buyHouse: params.buyHouseToggle,
+                    buyYear: safeParseFloat(params.buyYear) || 99,
+                    housePrice: (safeParseFloat(params.housePriceWan) || 0) * 10000,
+                    downPct: (safeParseFloat(params.downPaymentPct) || 20) / 100,
+                    mortgageRate: (safeParseFloat(params.mortgageRate) || 2.2) / 100,
+                    loanTerm: safeParseFloat(params.loanTerm) || 30,
+                    houseGrowth: (safeParseFloat(params.houseAppreciation) || 1.5) / 100,
+                    investSliderPct: (safeParseFloat(params.investSliderPct) || 30) / 100,
+                    allowances: params.allowances || [],
+                    expenses: params.expenses || [],
+                    investments: params.investments || []
+                };
 
-            const baseMonthlyExp = p.expenses.reduce((sum, item) => sum + (Number(item.val) || 0), 0);
-            const baseFixedInv = p.investments.reduce((sum, item) => sum + (Number(item.val) || 0), 0);
+                const baseMonthlyExp = p.expenses.reduce((sum, item) => sum + safeParseFloat(item.val), 0);
+                const baseFixedInv = p.investments.reduce((sum, item) => sum + safeParseFloat(item.val), 0);
 
-            let currentRank = 'S2', yearOfRank = 0, forceRetired = false;
-            let liquidAsset = 0, houseValue = 0, loanBalance = 0, monthlyMortgagePayment = 0, hasBoughtHouse = false;
-            const targetIdx = RANK_ORDER.indexOf(p.targetRank);
-            
-            // Data Arrays for Charts
-            const history = { 
-                labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [], 
-                cashflow: { income: [], expense: [], invest: [], mortgage: [], surplus: [] }
-            };
-            
-            let firstYearExp = 0, firstYearInv = 0, firstYearNet = 0;
-
-            for (let y = 1; y <= p.years; y++) {
-                if (y > REAL_SALARY_STRUCTURE[currentRank].max_years) { forceRetired = true; break; }
-                const rankIdx = RANK_ORDER.indexOf(currentRank);
-                if (yearOfRank >= REAL_SALARY_STRUCTURE[currentRank].promotion_years && rankIdx < targetIdx) { currentRank = RANK_ORDER[rankIdx + 1]; yearOfRank = 0; }
-
-                const rankData = REAL_SALARY_STRUCTURE[currentRank];
-                const base = (rankData.base + rankData.pro_add) * Math.pow(1 + rankData.annual_growth, y - 1) * Math.pow(1 + p.raise, y - 1);
+                let currentRank = 'S2', yearOfRank = 0, forceRetired = false;
+                let liquidAsset = 0, houseValue = 0, loanBalance = 0, monthlyMortgagePayment = 0, hasBoughtHouse = false;
+                const targetIdx = RANK_ORDER.indexOf(p.targetRank);
                 
-                let allowance = 0; 
-                p.allowances.forEach(a => { if(y >= a.start && y <= a.end) allowance += (Number(a.val) || 0); });
+                const history = { 
+                    labels: [], netAsset: [], realAsset: [], logs: [], house: [], loan: [], 
+                    cashflow: { income: [], expense: [], invest: [], mortgage: [], surplus: [] }
+                };
                 
-                const gross = base + VOLUNTEER_ADDITION + allowance;
-                const netMonthly = Math.round(gross * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
-                
-                let yearMortgageCost = 0;
-                if (p.buyHouse && y === p.buyYear && !hasBoughtHouse) {
-                    hasBoughtHouse = true; houseValue = p.housePrice;
-                    const downPay = Math.round(p.housePrice * p.downPct);
-                    loanBalance = p.housePrice - downPay; liquidAsset -= downPay;
-                    const r = p.mortgageRate/12, n = p.loanTerm*12;
-                    monthlyMortgagePayment = (r>0) ? Math.round(loanBalance*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)) : Math.round(loanBalance/n);
+                let firstYearExp = 0, firstYearInv = 0, firstYearNet = 0;
+
+                for (let y = 1; y <= p.years; y++) {
+                    if (y > REAL_SALARY_STRUCTURE[currentRank].max_years) { forceRetired = true; break; }
+                    const rankIdx = RANK_ORDER.indexOf(currentRank);
+                    if (yearOfRank >= REAL_SALARY_STRUCTURE[currentRank].promotion_years && rankIdx < targetIdx) { currentRank = RANK_ORDER[rankIdx + 1]; yearOfRank = 0; }
+
+                    const rankData = REAL_SALARY_STRUCTURE[currentRank];
+                    const base = (rankData.base + rankData.pro_add) * Math.pow(1 + rankData.annual_growth, y - 1) * Math.pow(1 + p.raise, y - 1);
+                    
+                    let allowance = 0; 
+                    p.allowances.forEach(a => { if(y >= a.start && y <= a.end) allowance += safeParseFloat(a.val); });
+                    
+                    const gross = base + VOLUNTEER_ADDITION + allowance;
+                    const netMonthly = Math.round(gross * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
+                    
+                    let yearMortgageCost = 0;
+                    if (p.buyHouse && y === p.buyYear && !hasBoughtHouse) {
+                        hasBoughtHouse = true; houseValue = p.housePrice;
+                        const downPay = Math.round(p.housePrice * p.downPct);
+                        loanBalance = p.housePrice - downPay; liquidAsset -= downPay;
+                        const r = p.mortgageRate/12, n = p.loanTerm*12;
+                        monthlyMortgagePayment = (r>0) ? Math.round(loanBalance*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)) : Math.round(loanBalance/n);
+                    }
+                    if (hasBoughtHouse) {
+                        houseValue = Math.round(houseValue * (1 + p.houseGrowth));
+                        if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
+                    }
+
+                    const dynamicInvest = netMonthly * p.investSliderPct; 
+                    const totalMonthlyInv = dynamicInvest + baseFixedInv; 
+                    const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
+
+                    if(y === 1) { firstYearExp = currentMonthlyExp; firstYearInv = totalMonthlyInv; firstYearNet = netMonthly; }
+
+                    const annualIncome = netMonthly * 13.5;
+                    const annualExpense = currentMonthlyExp * 12;
+                    const annualInvest = totalMonthlyInv * 12;
+                    const netCashFlow = annualIncome - annualExpense - annualInvest - yearMortgageCost;
+
+                    liquidAsset = liquidAsset * (1 + p.returnRate) + annualInvest + netCashFlow;
+                    const netAsset = liquidAsset + houseValue - loanBalance;
+
+                    history.labels.push(`Y${y}`);
+                    history.netAsset.push(Math.round(netAsset));
+                    history.realAsset.push(Math.round(netAsset / Math.pow(1 + p.inflation, y)));
+                    history.house.push(Math.round(houseValue));
+                    history.loan.push(Math.round(loanBalance));
+                    
+                    history.cashflow.income.push(Math.round(annualIncome));
+                    history.cashflow.expense.push(Math.round(annualExpense));
+                    history.cashflow.invest.push(Math.round(annualInvest));
+                    history.cashflow.mortgage.push(Math.round(yearMortgageCost));
+                    history.cashflow.surplus.push(Math.round(netCashFlow));
+
+                    history.logs.push({ y, rank: REAL_SALARY_STRUCTURE[currentRank].rank, income: annualIncome, mortgage: yearMortgageCost, cashflow: netCashFlow, netAsset, invest: annualInvest, expense: annualExpense });
+                    yearOfRank++;
                 }
-                if (hasBoughtHouse) {
-                    houseValue = Math.round(houseValue * (1 + p.houseGrowth));
-                    if (loanBalance > 0) { yearMortgageCost = monthlyMortgagePayment * 12; loanBalance -= (yearMortgageCost - (loanBalance * p.mortgageRate)); if(loanBalance < 0) loanBalance = 0; }
-                }
-
-                const dynamicInvest = netMonthly * p.investSliderPct; 
-                const totalMonthlyInv = dynamicInvest + baseFixedInv; 
-                const currentMonthlyExp = baseMonthlyExp * Math.pow(1 + p.inflation, y - 1);
-
-                if(y === 1) { firstYearExp = currentMonthlyExp; firstYearInv = totalMonthlyInv; firstYearNet = netMonthly; }
-
-                const annualIncome = netMonthly * 13.5;
-                const annualExpense = currentMonthlyExp * 12;
-                const annualInvest = totalMonthlyInv * 12;
-                const netCashFlow = annualIncome - annualExpense - annualInvest - yearMortgageCost;
-
-                liquidAsset = liquidAsset * (1 + p.returnRate) + annualInvest + netCashFlow;
-                const netAsset = liquidAsset + houseValue - loanBalance;
-
-                history.labels.push(`Y${y}`);
-                history.netAsset.push(Math.round(netAsset));
-                history.realAsset.push(Math.round(netAsset / Math.pow(1 + p.inflation, y)));
-                history.house.push(Math.round(houseValue));
-                history.loan.push(Math.round(loanBalance));
                 
-                // For Stacked Bar Chart
-                history.cashflow.income.push(Math.round(annualIncome));
-                history.cashflow.expense.push(Math.round(annualExpense));
-                history.cashflow.invest.push(Math.round(annualInvest));
-                history.cashflow.mortgage.push(Math.round(yearMortgageCost));
-                history.cashflow.surplus.push(Math.round(netCashFlow));
-
-                history.logs.push({ y, rank: REAL_SALARY_STRUCTURE[currentRank].rank, income: annualIncome, mortgage: yearMortgageCost, cashflow: netCashFlow, netAsset, invest: annualInvest, expense: annualExpense });
-                yearOfRank++;
+                let pension = 0;
+                if (history.labels.length >= 20) {
+                    pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
+                }
+                return { history, pension, params: p, firstYearExp, firstYearInv, firstYearNet };
+            } catch (e) {
+                console.error("Calculation Error:", e);
+                alert("運算發生錯誤，請檢查輸入數值是否正確。");
+                return null;
             }
-            
-            let pension = 0;
-            if (history.labels.length >= 20) {
-                pension = Math.round(REAL_SALARY_STRUCTURE[currentRank].base * Math.pow(1.015, history.labels.length-1) * 2 * (0.55 + (history.labels.length - 20) * 0.02));
-            }
-            return { history, pension, params: p, firstYearExp, firstYearInv, firstYearNet };
         }
 
         // --- Report ---
@@ -453,7 +466,7 @@
             const h = res.history;
             const last = h.netAsset.length - 1;
             const netAsset = h.netAsset[last];
-            const monthlySaveRate = Math.round((res.firstYearInv / res.firstYearNet) * 100);
+            const monthlySaveRate = res.firstYearNet > 0 ? Math.round((res.firstYearInv / res.firstYearNet) * 100) : 0;
             
             let analysis = `
                 <div class="border-b border-slate-700 pb-2 mb-4"><h4 class="font-bold text-gold text-lg">戰略評估報告 (Assessment)</h4><p class="text-2xl font-black mt-2 ${netAsset > 0 ? 'text-green-400' : 'text-red-500'}">${netAsset > 0 ? 'STATUS: HEALTHY (財務健康)' : 'STATUS: CRITICAL (財務赤字)'}</p></div>
@@ -469,11 +482,14 @@
 
         // --- Core UI Update ---
         function orchestrateSimulation() {
-            saveInputsToMemory(currentScenario);
-            const resA = calculateScenarioData(scenarioData.A);
-            const resB = calculateScenarioData(scenarioData.B);
-            currentResult = (currentScenario === 'A') ? resA : resB;
-            updateUI(currentResult, (currentScenario === 'A') ? resB : resA);
+            try {
+                saveInputsToMemory(currentScenario);
+                const resA = calculateScenarioData(scenarioData.A);
+                const resB = calculateScenarioData(scenarioData.B);
+                if (!resA || !resB) return;
+                currentResult = (currentScenario === 'A') ? resA : resB;
+                updateUI(currentResult, (currentScenario === 'A') ? resB : resA);
+            } catch (e) { console.error(e); }
         }
         function forceRefresh() { orchestrateSimulation(); }
 
@@ -483,7 +499,7 @@
             document.getElementById('total-invest-display').innerText = formatMoney(res.firstYearInv);
             const diff = h.netAsset[last] - compareRes.history.netAsset[compareRes.history.netAsset.length - 1];
             document.getElementById('total-asset').innerText = formatMoney(h.netAsset[last]);
-            document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-success':'text-alert'} font-bold">${(diff>=0?'+':'') + formatMoney(diff)}</span>`;
+            document.getElementById('comp-asset').innerHTML = `與方案 ${currentScenario==='A'?'B':'A'} 差異: <span class="${diff>=0?'text-green-400':'text-red-500'} font-bold">${(diff>=0?'+':'') + formatMoney(diff)}</span>`;
             document.getElementById('pension-monthly').innerText = res.pension > 0 ? formatMoney(res.pension) : "未達門檻";
             
             const hDiv = document.getElementById('housing-status-display');
@@ -505,7 +521,7 @@
             Chart.defaults.color = '#94a3b8';
             const h = res.history; const ch = compRes.history;
 
-            // 1. Asset Compare (Line)
+            // 1. Asset Compare Chart (Line)
             if (charts.compare) charts.compare.destroy();
             const ctx1 = document.getElementById('assetCompareChart').getContext('2d');
             charts.compare = new Chart(ctx1, { type: 'line', data: { labels: h.labels, datasets: [{ label: `方案 ${currentScenario}`, data: h.netAsset, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0 }, { label: `方案 ${currentScenario==='A'?'B':'A'}`, data: ch.netAsset, borderColor: '#64748b', borderWidth: 2, borderDash: [5,5], fill: false, tension: 0.3, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#334155' } }, y: { grid: { color: '#334155' } } } } });
@@ -515,19 +531,28 @@
             const ctxCF = document.getElementById('cashflowChart').getContext('2d');
             charts.cashflow = new Chart(ctxCF, { type: 'bar', data: { labels: h.labels, datasets: [ { label: '房貸', data: h.cashflow.mortgage, backgroundColor: '#f97316' }, { label: '生活', data: h.cashflow.expense, backgroundColor: '#64748b' }, { label: '投資', data: h.cashflow.invest, backgroundColor: '#22c55e' }, { label: '結餘', data: h.cashflow.surplus, backgroundColor: '#3b82f6' } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, grid: { color: '#334155' } } }, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } } } });
 
-            // 3. Wealth Composition (Stacked Area)
+            // 3. Wealth Composition (Area / Line) - FIXED STACKING
             if (charts.wealth) charts.wealth.destroy();
             const ctxW = document.getElementById('wealthChart').getContext('2d');
-            // Liquid Asset = Net Asset - House Value + Loan (Logic check: Liquid = Cash + Invest return)
-            // But here we use calculated Liquid Asset from simulation.
-            // Wait, liquidAsset in logic includes house impact? No. 
-            // Let's use: House Value (Area), Liquid Assets (Area), Loan (Line)
-            // Need to reconstruct Liquid from Net: Net = Liquid + House - Loan => Liquid = Net - House + Loan
             const liquidData = h.netAsset.map((net, i) => net - h.house[i] + h.loan[i]);
-            
-            charts.wealth = new Chart(ctxW, { type: 'line', data: { labels: h.labels, datasets: [ { label: '房貸餘額', data: h.loan, type: 'line', borderColor: '#ef4444', borderWidth: 2, borderDash: [5,5], fill: false, order: 0 }, { label: '流動資產', data: liquidData, backgroundColor: 'rgba(59, 130, 246, 0.5)', fill: true, borderWidth: 0, order: 2 }, { label: '房產市值', data: h.house, backgroundColor: 'rgba(249, 115, 22, 0.5)', fill: true, borderWidth: 0, order: 1 } ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, grid: { color: '#334155' } } }, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } } } });
+            charts.wealth = new Chart(ctxW, { 
+                type: 'line', 
+                data: { 
+                    labels: h.labels, 
+                    datasets: [ 
+                        { label: '房貸餘額', data: h.loan, type: 'line', borderColor: '#ef4444', borderWidth: 2, borderDash: [5,5], fill: false, order: 0 }, 
+                        { label: '流動資產', data: liquidData, backgroundColor: 'rgba(59, 130, 246, 0.5)', fill: true, borderWidth: 0, order: 2, stack: 'assets' }, 
+                        { label: '房產市值', data: h.house, backgroundColor: 'rgba(249, 115, 22, 0.5)', fill: true, borderWidth: 0, order: 1, stack: 'assets' } 
+                    ] 
+                }, 
+                options: { 
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, 
+                    scales: { y: { stacked: false, grid: { color: '#334155' } } }, // Key Fix: Disable global stacking, use per-dataset stack 
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } } 
+                } 
+            });
 
-            // 4. Inflation (Line)
+            // 4. Inflation Chart
             if (charts.inflation) charts.inflation.destroy();
             const ctx2 = document.getElementById('inflationChart').getContext('2d');
             charts.inflation = new Chart(ctx2, { type: 'line', data: { labels: h.labels, datasets: [{ label: '名目', data: h.netAsset, borderColor: '#cbd5e1', borderWidth: 2, pointRadius: 0 }, { label: '實質', data: h.realAsset, borderColor: '#d4af37', backgroundColor: 'rgba(212, 175, 55, 0.1)', borderWidth: 2, fill: true, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { x: { grid: { color: '#334155' } }, y: { grid: { color: '#334155' } } } } });
