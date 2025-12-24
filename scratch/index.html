@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>軍人職涯薪資規劃決策支援系統 | v3.0 戰術儀表板</title>
+    <title>軍人職涯薪資規劃決策支援系統 | v3.1 戰術儀表板 (Final)</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -83,7 +83,7 @@
                 <h1 class="text-white text-lg font-bold tracking-widest uppercase">軍人職涯薪資規劃決策支援系統</h1>
                 <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    <p class="text-slate-400 text-[10px] tracking-[0.2em] font-mono">SYSTEM ONLINE | v3.0</p>
+                    <p class="text-slate-400 text-[10px] tracking-[0.2em] font-mono">SYSTEM ONLINE | v3.1</p>
                 </div>
             </div>
             <div class="red-ink text-xl -right-20 top-8 rotate-[-5deg]">極機密</div>
@@ -336,6 +336,7 @@
 
     <script>
         // --- 1. Global Data ---
+        // 移除 food_add 以修正 NaN 問題
         const REAL_SALARY_STRUCTURE = {
             'S2': { rank: '少尉', base: 22750, pro_add: 28000, promotion_years: 1, annual_growth: 0.015, max_years: 12 }, 
             'S3': { rank: '中尉', base: 25050, pro_add: 30000, promotion_years: 3, annual_growth: 0.015, max_years: 12 },
@@ -432,6 +433,7 @@
                 if(document.getElementById(id)) document.getElementById(id).value = data[id==='investSlider'?'investSliderPct':id]; 
             });
             
+            // Housing Toggle
             const toggle = document.getElementById('buyHouseToggle');
             const hInputs = document.getElementById('housing-inputs');
             toggle.checked = data.buyHouseToggle;
@@ -440,6 +442,7 @@
 
             updateSliderDisplay(); 
 
+            // Lists
             document.getElementById('custom-allowances-container').innerHTML = '';
             (data.allowances || []).forEach(a => addCustomAllowance(a, true));
             document.getElementById('expense-items-container').innerHTML = '';
@@ -535,7 +538,9 @@
                 const rankData = REAL_SALARY_STRUCTURE[currentRank];
                 const base = (rankData.base + rankData.pro_add) * Math.pow(1 + rankData.annual_growth, y - 1) * Math.pow(1 + p.raise, y - 1);
                 let allowance = 0; p.allowances.forEach(a => { if(y >= a.start && y <= a.end) allowance += a.val; });
-                const netMonthly = Math.round((base + rankData.food_add + VOLUNTEER_ADDITION + allowance) * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
+                
+                // Fixed Calculation: Removed food_add reference
+                const netMonthly = Math.round((base + VOLUNTEER_ADDITION + allowance) * (1 - PENSION_RATE * INDIVIDUAL_PENSION_RATIO));
                 
                 let yearMortgageCost = 0;
                 if (p.buyHouse && y === p.buyYear && !hasBoughtHouse) {
@@ -655,10 +660,9 @@
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
             });
 
-            // 3. Distribution Pie Chart (First Year Monthly)
+            // 3. Distribution Pie Chart (First Year)
             if (charts.distribution) charts.distribution.destroy();
             const ctx3 = document.getElementById('distributionChart').getContext('2d');
-            // Calc remainder
             const totalIn = res.firstYearNet;
             const exp = res.firstYearExp;
             const inv = res.firstYearInv;
@@ -690,7 +694,7 @@
         function exportCSV() {
             let csv = "\uFEFF年度,階級,稅後年收,房貸支出,總支出,總投資,現金流結餘,淨資產\n";
             document.querySelectorAll('#event-log-body tr').forEach(r => csv += Array.from(r.querySelectorAll('td')).map(c => c.innerText.replace(/[$,]/g, '')).join(',') + "\n");
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8;'})); a.download = '軍旅理財戰報.csv'; a.click();
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8;'})); a.download = 'report.csv'; a.click();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
