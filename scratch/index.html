@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>空軍官校財務決策系統 | v8.1 邏輯修正版</title>
+    <title>空軍官校職涯財務決策支援系統 | v9.0 圖表修復版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -15,17 +15,19 @@
         input, select { background-color: #1e293b; border: 1px solid #475569; color: white; padding: 4px 8px; border-radius: 4px; width: 100%; font-size: 13px; }
         input:focus, select:focus { border-color: #fbbf24; outline: none; }
         
-        /* 強化滑桿樣式 */
+        /* 強化滑桿 */
         input[type=range] { -webkit-appearance: none; height: 6px; background: #334155; border-radius: 3px; border:none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #fbbf24; border-radius: 50%; cursor: pointer; border: 2px solid #fff; }
 
         .btn { padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 12px; text-align: center; }
         .btn-primary { background-color: #2563eb; color: white; }
-        .btn-primary:hover { background-color: #1d4ed8; }
         .btn-outline { border: 1px solid #475569; color: #94a3b8; }
         .btn-outline:hover { border-color: #cbd5e1; color: white; background: #334155; }
         
         .panel { background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 12px; backdrop-filter: blur(4px); }
+        
+        /* 強制圖表容器高度，防止塌陷 */
+        .chart-container { position: relative; height: 250px; width: 100%; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -34,8 +36,7 @@
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-blue-600 flex items-center justify-center rounded text-white font-black text-sm shadow-lg shadow-blue-500/50">AF</div>
             <div>
-                <h1 class="font-bold text-base tracking-wider text-white">空軍財務戰情室 v8.1</h1>
-                <p class="text-[10px] text-gray-400">邏輯修正：投資複利分離運算</p>
+                <h1 class="font-bold text-base tracking-wider text-white">空軍財務戰情室 v9.0</h1>
             </div>
         </div>
         <div class="flex gap-2">
@@ -62,7 +63,7 @@
                 </section>
 
                 <section>
-                    <h3 class="text-emerald-400 font-bold text-xs mb-3 border-l-4 border-emerald-500 pl-2 uppercase">02. 投資策略 (關鍵)</h3>
+                    <h3 class="text-emerald-400 font-bold text-xs mb-3 border-l-4 border-emerald-500 pl-2 uppercase">02. 投資策略</h3>
                     
                     <div class="p-4 bg-slate-800 rounded-lg border border-slate-600 shadow-inner mb-3">
                         <label class="text-xs font-bold text-white flex justify-between mb-2">
@@ -70,7 +71,6 @@
                             <span id="slider-val" class="text-emerald-400 text-lg">30%</span>
                         </label>
                         <input type="range" id="investSlider" min="0" max="90" value="30" class="w-full cursor-pointer" oninput="document.getElementById('slider-val').innerText = this.value + '%'; app.calc()">
-                        <p class="text-[10px] text-gray-500 mt-2 text-center">注意：只有此比例資金會進入複利滾存</p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3 mb-3">
@@ -112,11 +112,9 @@
                     <p id="kpi-diff" class="text-xs mt-2 text-gray-500">--</p>
                 </div>
                 <div class="panel border-t-4 border-blue-500 bg-gradient-to-b from-slate-800 to-slate-900">
-                    <p class="text-xs text-gray-400 uppercase tracking-widest">投資 vs 現金佔比</p>
-                    <div class="flex items-end gap-2 mt-1">
-                        <span id="kpi-invest-ratio" class="text-2xl font-bold text-blue-400">--</span>
-                        <span class="text-xs text-gray-500 mb-1">投資部位</span>
-                    </div>
+                    <p class="text-xs text-gray-400 uppercase tracking-widest">投資滾存 (Investment)</p>
+                    <p id="kpi-invest-pool" class="text-2xl font-bold text-blue-400 mt-1">--</p>
+                    <p class="text-[10px] text-gray-500 mt-1">來自提撥與固定投資的複利</p>
                 </div>
                 <div class="panel border-t-4 border-orange-500 bg-gradient-to-b from-slate-800 to-slate-900">
                     <p class="text-xs text-gray-400 uppercase tracking-widest">房產狀態</p>
@@ -124,29 +122,26 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 mb-6 h-80">
-                <div class="panel flex flex-col shadow-lg">
-                    <h4 class="text-xs font-bold text-gray-300 mb-2 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-500"></span> 資產累積對照 (A vs B)</h4>
-                    <div class="flex-1 relative"><canvas id="chart-asset"></canvas></div>
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="panel">
+                    <h4 class="text-xs font-bold text-gray-300 mb-2">📊 資產累積對照 (A vs B)</h4>
+                    <div class="chart-container"><canvas id="chart-asset"></canvas></div>
                 </div>
-                <div class="panel flex flex-col shadow-lg">
-                    <h4 class="text-xs font-bold text-gray-300 mb-2 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-green-500"></span> 資產結構 (投資 vs 現金)</h4>
-                    <div class="flex-1 relative"><canvas id="chart-structure"></canvas></div>
+                <div class="panel">
+                    <h4 class="text-xs font-bold text-gray-300 mb-2">💰 資金池結構 (投資 vs 現金)</h4>
+                    <div class="chart-container"><canvas id="chart-wealth"></canvas></div>
                 </div>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 mb-6 h-80">
-                <div class="panel flex flex-col shadow-lg">
-                    <h4 class="text-xs font-bold text-gray-300 mb-2 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-orange-500"></span> 現金流分配 (Cashflow)</h4>
-                    <div class="flex-1 relative"><canvas id="chart-flow"></canvas></div>
+                <div class="panel">
+                    <h4 class="text-xs font-bold text-gray-300 mb-2">🌊 現金流分配 (Cashflow)</h4>
+                    <div class="chart-container"><canvas id="chart-flow"></canvas></div>
                 </div>
-                <div class="panel flex flex-col shadow-lg">
-                    <h4 class="text-xs font-bold text-gray-300 mb-2 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> 通膨實質購買力</h4>
-                    <div class="flex-1 relative"><canvas id="chart-inflation"></canvas></div>
+                <div class="panel">
+                    <h4 class="text-xs font-bold text-gray-300 mb-2">📉 通膨實質購買力</h4>
+                    <div class="chart-container"><canvas id="chart-inflation"></canvas></div>
                 </div>
             </div>
 
-            <div class="panel overflow-hidden border border-slate-700 shadow-xl">
+            <div class="panel overflow-hidden border border-slate-700 shadow-xl mb-10">
                 <div class="overflow-x-auto max-h-96">
                     <table class="w-full text-xs text-left text-gray-300">
                         <thead class="bg-slate-800 text-gray-400 sticky top-0 font-bold uppercase tracking-wider">
@@ -156,8 +151,8 @@
                                 <th class="p-3 text-right">年收入</th>
                                 <th class="p-3 text-right text-red-300">總支出</th>
                                 <th class="p-3 text-right text-green-300">投入投資</th>
-                                <th class="p-3 text-right text-blue-300">投資滾存</th>
-                                <th class="p-3 text-right text-gray-400">現金結餘</th>
+                                <th class="p-3 text-right text-blue-300">投資資產</th>
+                                <th class="p-3 text-right text-gray-400">現金資產</th>
                                 <th class="p-3 text-right text-white font-bold">總淨資產</th>
                             </tr>
                         </thead>
@@ -169,6 +164,7 @@
     </div>
 
 <script>
+// --- 核心邏輯 ---
 const APP = {
     data: { A: {}, B: {} },
     current: 'A',
@@ -181,7 +177,7 @@ const APP = {
         'G1': {base:48030, add:70000, max:35}
     },
 
-    // 強制數值轉換，避免 NaN
+    // 強制轉數值
     N: (v) => {
         if(!v) return 0;
         const n = parseFloat(String(v).replace(/,/g, ''));
@@ -198,21 +194,20 @@ const APP = {
         };
         APP.data.A = JSON.parse(JSON.stringify(def));
         APP.data.B = JSON.parse(JSON.stringify(def));
-        APP.data.B.returnRate = 4;
-        APP.data.B.investSliderPct = 50; // 預設 B 方案存比較多，顯示差異
+        APP.data.B.returnRate = 4; // 對照組預設
         
         document.body.addEventListener('input', (e) => {
             if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') APP.calc();
         });
         APP.renderInputs('A');
-        APP.calc();
+        setTimeout(APP.calc, 500); // 延遲一下確保 DOM 載入
     },
 
     switchScenario: (s) => {
         APP.saveInputs();
         APP.current = s;
-        document.getElementById('btn-A').className = s==='A' ? 'btn btn-primary shadow-lg' : 'btn btn-outline';
-        document.getElementById('btn-B').className = s==='B' ? 'btn btn-primary shadow-lg' : 'btn btn-outline';
+        document.getElementById('btn-A').className = s==='A' ? 'btn btn-primary' : 'btn btn-outline';
+        document.getElementById('btn-B').className = s==='B' ? 'btn btn-primary' : 'btn btn-outline';
         APP.renderInputs(s);
         APP.calc();
     },
@@ -222,9 +217,7 @@ const APP = {
         const ids = ['targetRank','serviceYears','inflationRate','salaryRaiseRate','returnRate','buyYear','housePriceWan','downPaymentPct','mortgageRate','loanTerm','houseAppreciation','investSlider'];
         ids.forEach(id => {
             const el = document.getElementById(id);
-            if(!el) return;
-            const key = id === 'investSlider' ? 'investSliderPct' : id;
-            d[key] = id === 'targetRank' ? el.value : APP.N(el.value);
+            if(el) d[id === 'investSlider' ? 'investSliderPct' : id] = id === 'targetRank' ? el.value : APP.N(el.value);
         });
         d.buyHouseToggle = document.getElementById('buyHouseToggle').checked;
         d.allowances = APP.readList('allowance-list');
@@ -236,7 +229,6 @@ const APP = {
         const d = APP.data[s];
         const ids = ['targetRank','serviceYears','inflationRate','salaryRaiseRate','returnRate','buyYear','housePriceWan','downPaymentPct','mortgageRate','loanTerm','houseAppreciation'];
         ids.forEach(k => document.getElementById(k).value = d[k]);
-        
         document.getElementById('investSlider').value = d.investSliderPct;
         document.getElementById('slider-val').innerText = d.investSliderPct + '%';
         document.getElementById('buyHouseToggle').checked = d.buyHouseToggle;
@@ -252,13 +244,13 @@ const APP = {
         c.innerHTML = '';
         list.forEach(item => {
             let extra = id === 'allowance-list' ? 
-                `<input type="number" class="w-12 text-center bg-slate-900 border border-slate-600" value="${item.start||1}">-<input type="number" class="w-12 text-center bg-slate-900 border border-slate-600" value="${item.end||20}">` : '';
+                `<input type="number" class="w-12 text-center bg-slate-800" value="${item.start||1}">-<input type="number" class="w-12 text-center bg-slate-800" value="${item.end||20}">` : '';
             c.innerHTML += `
             <div class="flex gap-1 items-center mb-1">
-                <input type="text" value="${item.name}" class="w-full text-xs bg-slate-800 border-none">
-                <input type="number" value="${item.val}" class="w-20 text-right bg-slate-800 border-none font-mono">
+                <input type="text" value="${item.name}" class="w-full text-xs bg-slate-800">
+                <input type="number" value="${item.val}" class="w-20 text-right bg-slate-800">
                 ${extra}
-                <button onclick="this.parentElement.remove(); app.calc()" class="text-red-400 hover:text-red-200 px-1">✕</button>
+                <button onclick="this.parentElement.remove(); app.calc()" class="text-red-400 px-1">✕</button>
             </div>`;
         });
     },
@@ -266,13 +258,8 @@ const APP = {
         const arr = [];
         document.getElementById(id).querySelectorAll('div.flex').forEach(row => {
             const inputs = row.querySelectorAll('input');
-            const name = inputs[0].value;
-            const val = APP.N(inputs[1].value);
-            if(id === 'allowance-list') {
-                arr.push({name, val, start: APP.N(inputs[2].value), end: APP.N(inputs[3].value)});
-            } else {
-                arr.push({name, val});
-            }
+            if(id === 'allowance-list') arr.push({name:inputs[0].value, val:APP.N(inputs[1].value), start:APP.N(inputs[2].value), end:APP.N(inputs[3].value)});
+            else arr.push({name:inputs[0].value, val:APP.N(inputs[1].value)});
         });
         return arr;
     },
@@ -284,34 +271,28 @@ const APP = {
     },
     addAirForcePay: () => {
         const d = APP.data[APP.current];
-        d.allowances = [
-            {name: '空勤加給(初)', val: 22000, start: 1, end: 5},
-            {name: '空勤加給(中)', val: 45000, start: 6, end: 15},
-            {name: '空勤加給(高)', val: 68000, start: 16, end: 25}
-        ];
+        d.allowances = [{name: '空勤(初)', val: 22000, start: 1, end: 5}, {name: '空勤(中)', val: 45000, start: 6, end: 15}, {name: '空勤(高)', val: 68000, start: 16, end: 25}];
         APP.renderList('allowance-list', d.allowances);
         APP.calc();
     },
 
-    // --- 核心運算：修正分離池邏輯 ---
+    // --- 運算 ---
     runSim: (d) => {
         const N = APP.N;
         const years = N(d.serviceYears) || 20;
         const inflation = N(d.inflationRate) / 100;
-        const raise = N(d.salaryRaiseRate) / 100; // 調薪率 (這裡我假設每年1%政府調薪)
+        const raise = N(d.salaryRaiseRate) / 100; 
         const roi = N(d.returnRate) / 100;
         const sliderPct = N(d.investSliderPct) / 100;
         
         let rank = 'S2', rankY = 0;
         const targetIdx = APP.ranks.indexOf(d.targetRank);
         
-        // 兩個獨立資產池
-        let investPool = 0; // 投資池 (會滾利息)
-        let cashPool = 0;   // 現金池 (不滾利息，或低利)
-        
+        let investPool = 0; // 複利池
+        let cashPool = 0;   // 現金池
         let house = 0, loan = 0, mPay = 0, hasHouse = false;
         
-        const res = { years:[], netAsset:[], realAsset:[], house:[], loan:[], investPool:[], cashPool:[], income:[], exp:[], inv:[], mortgage:[], flow:[], logs:[] };
+        const res = { years:[], netAsset:[], realAsset:[], house:[], loan:[], investPool:[], cashPool:[], mortgage:[], exp:[], inv:[], flow:[], logs:[] };
         
         const baseExp = d.expenses.reduce((s, x) => s + N(x.val), 0);
         const baseFixedInv = d.investments.reduce((s, x) => s + N(x.val), 0);
@@ -320,64 +301,39 @@ const APP = {
             // 晉升
             const rInfo = APP.salary[rank];
             const rIdx = APP.ranks.indexOf(rank);
-            if(y > 1 && y % 4 === 0 && rIdx < targetIdx && rankY < rInfo.max) {
-                rank = APP.ranks[rIdx+1];
-                rankY = 0;
-            } else rankY++;
+            if(y > 1 && y % 4 === 0 && rIdx < targetIdx && rankY < rInfo.max) { rank = APP.ranks[rIdx+1]; rankY = 0; } else rankY++;
 
-            // 薪資 = (本俸+專加) * 年資複利 * 調薪複利
+            // 薪資
             const payBase = (APP.salary[rank].base + APP.salary[rank].add) * Math.pow(1.015, rankY) * Math.pow(1+raise, y-1);
             let allow = 0;
             d.allowances.forEach(a => { if(y >= N(a.start) && y <= N(a.end)) allow += N(a.val); });
-            const gross = payBase + 15000 + allow; 
-            const netMonthly = gross * 0.95; 
+            const netMonthly = Math.round((payBase + 15000 + allow) * 0.95); 
 
             // 購屋
             let yMortgage = 0;
             if(d.buyHouseToggle && y === N(d.buyYear) && !hasHouse) {
-                hasHouse = true;
-                house = N(d.housePriceWan) * 10000;
+                hasHouse = true; house = N(d.housePriceWan) * 10000;
                 const down = house * (N(d.downPaymentPct)/100);
                 loan = house - down;
-                // 頭期款優先從現金池扣，不夠再從投資池扣
-                if(cashPool >= down) {
-                    cashPool -= down;
-                } else {
-                    const remain = down - cashPool;
-                    cashPool = 0;
-                    investPool -= remain;
-                }
-                const r = N(d.mortgageRate)/100/12;
-                const n = N(d.loanTerm)*12;
+                if(cashPool >= down) cashPool -= down; else { const rem = down - cashPool; cashPool = 0; investPool -= rem; }
+                const r = N(d.mortgageRate)/100/12, n = N(d.loanTerm)*12;
                 mPay = loan * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
             }
             if(hasHouse) {
                 house *= (1 + N(d.houseAppreciation)/100);
-                if(loan > 0) {
-                    yMortgage = mPay * 12;
-                    loan -= (yMortgage - loan*(N(d.mortgageRate)/100));
-                    if(loan < 0) loan = 0;
-                }
+                if(loan > 0) { yMortgage = mPay * 12; loan -= (yMortgage - loan*(N(d.mortgageRate)/100)); if(loan<0) loan=0; }
             }
 
-            // 金流計算
+            // 收支與投資
             const yIncome = netMonthly * 13.5;
             const yExp = baseExp * Math.pow(1+inflation, y-1) * 12;
-            
-            // 投資投入 = (月薪 * %) + 固定投資額
-            const yInvestInput = (netMonthly * sliderPct + baseFixedInv) * 12;
-            
-            // 現金結餘 = 收入 - 支出 - 拿去投資的錢 - 房貸
-            const cashSurplus = yIncome - yExp - yInvestInput - yMortgage;
+            const yInvestInput = (netMonthly * sliderPct + baseFixedInv) * 12; // 投入投資池的錢
+            const cashSurplus = yIncome - yExp - yInvestInput - yMortgage; // 剩下的進現金池
 
-            // *** 關鍵修正：分池滾存 ***
-            // 1. 投資池：舊錢滾利息 + 新投入資金
+            // 滾存
             investPool = investPool * (1 + roi) + yInvestInput;
-            
-            // 2. 現金池：舊錢不動 (假設0利率) + 新結餘
-            cashPool = cashPool + cashSurplus;
+            cashPool = cashPool + cashSurplus; // 現金不滾利
 
-            // 總資產
             const netAsset = investPool + cashPool + house - loan;
 
             res.years.push('Y'+y);
@@ -387,15 +343,12 @@ const APP = {
             res.cashPool.push(cashPool);
             res.house.push(house);
             res.loan.push(loan);
-            res.income.push(yIncome);
             res.exp.push(yExp);
             res.inv.push(yInvestInput);
             res.mortgage.push(yMortgage);
             res.flow.push(cashSurplus);
-            res.logs.push({y, rank, income:yIncome, exp:yExp, inv:yInvestInput, invPool:investPool, mortgage:yMortgage, flow:cashSurplus, net:netAsset});
+            res.logs.push({y, rank, income:yIncome, exp:yExp, inv:yInvestInput, invPool:investPool, cashPool:cashPool, mortgage:yMortgage, flow:cashSurplus, net:netAsset});
         }
-        
-        // 終身俸
         res.pension = Math.round(APP.salary[rank].base * 2 * (0.55 + Math.max(0, years-20)*0.02)); 
         return res;
     },
@@ -410,22 +363,20 @@ const APP = {
     updateUI: (res, comp) => {
         const last = res.netAsset.length - 1;
         document.getElementById('kpi-asset').innerText = APP.F(res.netAsset[last]);
+        document.getElementById('kpi-invest-pool').innerText = APP.F(res.investPool[last]); // 顯示投資池總額
+        
         const diff = res.netAsset[last] - comp.netAsset[last];
-        document.getElementById('kpi-diff').innerHTML = `與對照組差異: <span class="${diff>=0?'text-green-400':'text-red-400'} font-bold">${diff>0?'+':''}${APP.F(diff)}</span>`;
+        document.getElementById('kpi-diff').innerHTML = `差異: <span class="${diff>=0?'text-green-400':'text-red-400'}">${APP.F(diff)}</span>`;
         document.getElementById('kpi-pension').innerText = APP.F(res.pension);
         
-        // 投資佔比 KPI
-        const totalLiquid = res.investPool[last] + res.cashPool[last];
-        const ratio = totalLiquid > 0 ? Math.round((res.investPool[last] / totalLiquid)*100) : 0;
-        document.getElementById('kpi-invest-ratio').innerText = ratio + '%';
-
         const hDiv = document.getElementById('kpi-house');
         if(APP.data[APP.current].buyHouseToggle) {
-            hDiv.innerHTML = `市值: <span class="text-orange-400">${APP.F(res.house[last])}</span> / 貸: <span class="text-red-400">${APP.F(res.loan[last])}</span>`;
+            hDiv.innerHTML = `值: <span class="text-orange-400">${APP.F(res.house[last])}</span> / 貸: <span class="text-red-400">${APP.F(res.loan[last])}</span>`;
         } else {
             hDiv.innerText = "未啟用";
         }
 
+        // Table
         const tb = document.getElementById('table-body');
         tb.innerHTML = '';
         res.logs.forEach(l => {
@@ -445,6 +396,10 @@ const APP = {
     },
 
     drawCharts: (res, comp) => {
+        // 設定全域顏色
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+
         const ctxs = ['chart-asset', 'chart-flow', 'chart-wealth', 'chart-inflation'];
         ctxs.forEach(id => {
             if(APP.charts[id]) APP.charts[id].destroy();
@@ -460,10 +415,11 @@ const APP = {
                     data: {
                         labels: labels,
                         datasets: [
-                            { label: '目前方案', data: res.netAsset, borderColor: '#3b82f6', borderWidth: 3, tension: 0.3 },
-                            { label: '對照方案', data: comp.netAsset, borderColor: '#64748b', borderWidth: 2, borderDash: [5,5], tension: 0.3 }
+                            { label: '本方案', data: res.netAsset, borderColor: '#3b82f6', borderWidth: 3, tension: 0.3 },
+                            { label: '對照組', data: comp.netAsset, borderColor: '#64748b', borderWidth: 2, borderDash: [5,5], tension: 0.3 }
                         ]
-                    }
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
                 };
             } else if(id === 'chart-flow') {
                 config = {
@@ -477,7 +433,7 @@ const APP = {
                             { label: '現金結餘', data: res.flow, backgroundColor: '#3b82f6' }
                         ]
                     },
-                    options: { scales: { x: { stacked: true }, y: { stacked: true } } }
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
                 };
             } else if(id === 'chart-wealth') {
                 config = {
@@ -485,12 +441,12 @@ const APP = {
                     data: {
                         labels: labels,
                         datasets: [
-                            { label: '投資滾存 (複利)', data: res.investPool, backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10b981', fill: true, tension: 0.4 },
-                            { label: '現金積累 (無息)', data: res.cashPool, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', fill: true, tension: 0.4 },
-                            { label: '房產淨值', data: res.house.map((h,i)=>h-res.loan[i]), backgroundColor: 'rgba(249, 115, 22, 0.2)', borderColor: '#f97316', fill: true }
+                            { label: '投資滾存', data: res.investPool, backgroundColor: 'rgba(16, 185, 129, 0.3)', borderColor: '#10b981', fill: true, tension: 0.4 },
+                            { label: '現金積累', data: res.cashPool, backgroundColor: 'rgba(59, 130, 246, 0.3)', borderColor: '#3b82f6', fill: true, tension: 0.4 },
+                            { label: '房產淨值', data: res.house.map((h,i)=>h-res.loan[i]), backgroundColor: 'rgba(249, 115, 22, 0.3)', borderColor: '#f97316', fill: true }
                         ]
                     },
-                    options: { scales: { y: { stacked: true } } }
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { stacked: true } } }
                 };
             } else {
                 config = {
@@ -498,27 +454,19 @@ const APP = {
                     data: {
                         labels: labels,
                         datasets: [
-                            { label: '名目資產', data: res.netAsset, borderColor: '#94a3b8', borderWidth: 2 },
+                            { label: '名目資產', data: res.netAsset, borderColor: '#cbd5e1', borderWidth: 2 },
                             { label: '實質購買力', data: res.realAsset, borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)', fill: true, borderWidth: 3 }
                         ]
-                    }
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
                 };
             }
-            
-            // 通用設定
-            if(!config.options) config.options = {};
-            config.options.responsive = true;
-            config.options.maintainAspectRatio = false;
-            config.options.plugins = { legend: { labels: { color: '#94a3b8', boxWidth: 10, font: {size: 10} } } };
-            config.options.scales = config.options.scales || {};
-            config.options.scales.x = { ...config.options.scales.x, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } };
-            config.options.scales.y = { ...config.options.scales.y, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } };
-
             APP.charts[id] = new Chart(canvas, config);
         });
     }
 };
 
+// 啟動
 window.onload = APP.init;
 window.app = APP;
 </script>
