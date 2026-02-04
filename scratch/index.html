@@ -9,169 +9,120 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
         :root { --bg: #0f172a; --panel: #1e293b; --accent: #38bdf8; --danger: #f43f5e; --success: #10b981; }
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--bg); color: #e2e8f0; height: 100vh; overflow: hidden; display: flex; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--bg); color: #e2e8f0; height: 100vh; overflow: hidden; display: flex; margin: 0; }
         .mono { font-family: 'JetBrains Mono', monospace; }
-        
-        /* 側邊欄 */
-        aside { width: 400px; background: #0b1121; border-right: 1px solid #1e293b; display: flex; flex-direction: column; z-index: 50; overflow-y: auto; }
+        aside { width: 380px; background: #0b1121; border-right: 1px solid #1e293b; display: flex; flex-direction: column; overflow-y: auto; }
         .input-card { background: var(--panel); padding: 16px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 12px; }
-        
         label { font-size: 0.75rem; color: #94a3b8; display: block; margin-bottom: 4px; font-weight: 700; }
-        input, select { background: #0f172a; border: 1px solid #334155; color: white; padding: 6px 10px; border-radius: 4px; width: 100%; font-family: 'JetBrains Mono'; font-size: 0.9rem; }
-        
-        /* 方案切換 */
-        .tab-btn { flex: 1; padding: 10px; text-align: center; cursor: pointer; color: #64748b; font-weight: bold; border-radius: 6px; transition: 0.2s; }
-        .tab-btn.active { background: #334155; color: var(--accent); box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); }
-
-        /* 儀表板 */
+        input, select { background: #0f172a; border: 1px solid #334155; color: white; padding: 6px 10px; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        .tab-btn { flex: 1; padding: 10px; text-align: center; cursor: pointer; color: #64748b; font-weight: bold; border-radius: 6px; }
+        .tab-btn.active { background: #334155; color: var(--accent); }
         main { flex: 1; padding: 24px; overflow-y: auto; background: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%); }
         .kpi-card { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; }
-        .kpi-val { font-family: 'JetBrains Mono'; font-size: 1.8rem; font-weight: 700; }
-
-        /* 生活型態快選 */
-        .tier-btn { flex: 1; background: #0b1121; border: 1px solid #334155; padding: 6px; font-size: 0.7rem; cursor: pointer; border-radius: 4px; color: #94a3b8; }
-        .tier-btn.active { border-color: var(--danger); color: white; background: rgba(244, 63, 94, 0.1); }
-
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        th { color: #64748b; padding: 10px; text-align: right; border-bottom: 1px solid #334155; }
-        td { padding: 10px; text-align: right; border-bottom: 1px solid #1e293b; font-family: 'JetBrains Mono'; }
-        
-        /* 錄音中要求的預算警告 */
-        #budget-msg { font-size: 0.8rem; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; }
+        table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: right; border-bottom: 1px solid #1e293b; }
+        th { color: #64748b; }
+        .alert-box { padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 0.85rem; font-weight: bold; }
     </style>
 </head>
 <body>
 
+
+
 <aside>
-    <div class="p-6 border-b border-slate-800 bg-slate-950">
-        <h1 class="font-bold text-xl text-white tracking-tight">財務戰情室 <span class="text-cyan-400 text-xs">v27.0</span></h1>
-        <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1 mono">Decision Support System</p>
+    <div class="p-6 bg-slate-950">
+        <h1 class="font-bold text-xl text-white">財務戰情室 <span class="text-cyan-400 text-xs">v27.0</span></h1>
     </div>
 
     <div class="p-4 space-y-4">
-        <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
-            <div id="tab-A" class="tab-btn active" onclick="APP.switchTab('A')">方案 A (現狀)</div>
-            <div id="tab-B" class="tab-btn" onclick="APP.switchTab('B')">方案 B (決策)</div>
+        <div class="flex bg-slate-900 p-1 rounded-lg">
+            <div id="tab-A" class="tab-btn active" onclick="APP.switchTab('A')">方案 A</div>
+            <div id="tab-B" class="tab-btn" onclick="APP.switchTab('B')">方案 B</div>
         </div>
 
         <div class="input-card">
-            <div class="text-[10px] text-cyan-500 font-bold mb-3 tracking-widest uppercase">Career & Salary</div>
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <div><label>目前階級</label><select id="currentRank" onchange="APP.update()"></select></div>
-                <div><label>目標階級</label><select id="targetRank" onchange="APP.update()"></select></div>
+            <label>起始/目標階級</label>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <select id="currentRank" onchange="APP.update()"></select>
+                <select id="targetRank" onchange="APP.update()"></select>
             </div>
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <div><label>服役年資</label><input type="number" id="years" value="20" oninput="APP.update()"></div>
-                <div><label>實領月薪校正</label><input type="number" id="realPay" value="0" placeholder="自動計算" oninput="APP.update()"></div>
+            <label>服役年資 / 實領校正</label>
+            <div class="grid grid-cols-2 gap-2">
+                <input type="number" id="years" value="20" oninput="APP.update()">
+                <input type="number" id="realPay" value="0" oninput="APP.update()">
             </div>
         </div>
 
         <div class="input-card">
-            <div class="text-[10px] text-rose-500 font-bold mb-3 tracking-widest uppercase">Lifestyle & Expenses</div>
-            <div class="flex gap-1 mb-3">
-                <button class="tier-btn" onclick="APP.setLifestyle(30)">節約型</button>
-                <button class="tier-btn active" onclick="APP.setLifestyle(50)">平衡型</button>
-                <button class="tier-btn" onclick="APP.setLifestyle(70)">享樂型</button>
-            </div>
-            <div class="mb-3">
-                <div class="flex justify-between mb-1"><label>月薪支出比</label><span id="livingPctLabel" class="text-xs text-white mono">50%</span></div>
-                <input type="range" id="livingPct" min="10" max="90" value="50" class="w-full accent-rose-500" oninput="APP.updateInput('livingPct')">
-            </div>
-            <label>剛性支出 (保險/孝親)</label>
+            <label>生活支出比 (%): <span id="livingPctLabel" class="text-white">50%</span></label>
+            <input type="range" id="livingPct" min="10" max="90" value="50" class="w-full accent-rose-500" oninput="APP.updateInput('livingPct')">
+            <label class="mt-3">剛性支出 (保險/孝親)</label>
             <input type="number" id="fixedCost" value="5000" oninput="APP.update()">
         </div>
 
         <div class="input-card">
-            <div class="text-[10px] text-emerald-500 font-bold mb-3 tracking-widest uppercase">Asset Growth</div>
-            <div class="mb-3">
-                <div class="flex justify-between mb-1"><label>月薪提撥率</label><span id="investRateLabel" class="text-xs text-white mono">30%</span></div>
-                <input type="range" id="investRate" min="0" max="80" value="30" class="w-full accent-emerald-500" oninput="APP.updateInput('investRate')">
-            </div>
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <div><label>年報酬 ROI (%)</label><input type="number" id="roi" value="6.0" oninput="APP.update()"></div>
-                <div><label>通膨率 (%)</label><input type="number" id="inflation" value="2.0" oninput="APP.update()"></div>
-            </div>
-            <div class="flex justify-between items-center py-2 border-t border-slate-700 mt-2">
-                <label class="mb-0">購屋模擬開關</label>
-                <input type="checkbox" id="buyHouse" class="w-4 h-4" onchange="APP.update()">
-            </div>
-            <div id="housing-area" class="hidden space-y-2 mt-2">
-                <div class="grid grid-cols-2 gap-2">
-                    <div><label>購屋年 (Y)</label><input type="number" id="buyYear" value="10" oninput="APP.update()"></div>
-                    <div><label>總價 (萬)</label><input type="number" id="housePrice" value="1200" oninput="APP.update()"></div>
-                </div>
+            <label>年報酬 ROI (%): <span id="roiLabel" class="text-white">6%</span></label>
+            <input type="range" id="roi" min="1" max="15" value="6" class="w-full accent-emerald-500" oninput="APP.updateInput('roi')">
+            <label class="mt-3">購屋模擬</label>
+            <input type="checkbox" id="buyHouse" onchange="APP.update()">
+            <div id="housing-area" class="hidden mt-2 grid grid-cols-2 gap-2">
+                <input type="number" id="buyYear" value="10" placeholder="購屋年">
+                <input type="number" id="housePrice" value="1200" placeholder="總價(萬)">
             </div>
         </div>
     </div>
 </aside>
 
 <main>
-    <div id="budget-msg">✅ 財務平衡驗證通過</div>
+    <div id="budget-msg" class="alert-box"></div>
 
     <div class="grid grid-cols-3 gap-6 mb-8">
         <div class="kpi-card border-l-4 border-cyan-500">
-            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Plan A 最終資產</div>
-            <div class="kpi-val text-cyan-400" id="kpi-A">--</div>
+            <div class="text-xs text-slate-500 mb-1 uppercase font-bold">Plan A 最終資產</div>
+            <div class="kpi-val text-cyan-400 mono" id="kpi-A">--</div>
         </div>
         <div class="kpi-card border-l-4 border-emerald-500">
-            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Plan B 最終資產</div>
-            <div class="kpi-val text-emerald-400" id="kpi-B">--</div>
+            <div class="text-xs text-slate-500 mb-1 uppercase font-bold">Plan B 最終資產</div>
+            <div class="kpi-val text-emerald-400 mono" id="kpi-B">--</div>
         </div>
         <div class="kpi-card border-l-4 border-amber-500">
-            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">效益差額 (Alpha)</div>
-            <div class="kpi-val text-amber-500" id="kpi-diff">--</div>
+            <div class="text-xs text-slate-500 mb-1 uppercase font-bold">效益差額</div>
+            <div class="kpi-val text-amber-500 mono" id="kpi-diff">--</div>
         </div>
     </div>
 
     <div class="grid grid-cols-2 gap-6 mb-8 h-80">
         <div class="kpi-card flex flex-col">
-            <div class="text-xs text-slate-400 mb-4 font-bold">資產累積軌跡圖 (含複利與通膨)</div>
-            <div class="flex-1 min-h-0"><canvas id="chart-asset"></canvas></div>
+            <canvas id="chart-asset"></canvas>
         </div>
         <div class="kpi-card flex flex-col">
-            <div class="text-xs text-slate-400 mb-4 font-bold">資產構成分析 (當前方案)</div>
-            <div class="flex-1 min-h-0"><canvas id="chart-wealth"></canvas></div>
+            <canvas id="chart-wealth"></canvas>
         </div>
     </div>
 
     <div class="kpi-card p-0 overflow-hidden">
-        <div class="bg-slate-800/50 p-4 border-b border-slate-700 flex justify-between items-center">
-            <span class="text-xs font-bold">學術模型年度數據表 (學術引用參考)</span>
-            <span class="text-[10px] text-slate-500">單位：新台幣元</span>
-        </div>
-        <div class="overflow-x-auto">
-            <table>
-                <thead class="bg-slate-900 sticky top-0">
-                    <tr>
-                        <th class="text-center">Year</th>
-                        <th class="text-left">階級階段</th>
-                        <th>年總收入</th>
-                        <th class="text-rose-400">總消費支出</th>
-                        <th class="text-emerald-400">投資投入</th>
-                        <th class="text-amber-500">房貸/頭期</th>
-                        <th class="text-white font-bold">年度淨資產</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body"></tbody>
-            </table>
-        </div>
+        <table id="data-table">
+            <thead class="bg-slate-900">
+                <tr>
+                    <th style="text-align:center">Year</th>
+                    <th style="text-align:left">階級</th>
+                    <th>收入</th>
+                    <th>支出</th>
+                    <th>投資</th>
+                    <th>房貸</th>
+                    <th>淨值</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
     </div>
 </main>
 
 <script>
-/**
- * 國軍財務戰情室 v27.0 - JS 核心
- * 包含：Lifestyle Creep (階級通膨)、Retirement Pay (退伍金)、Budget Audit (收支審計)
- */
-
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = '#1e293b';
-
 const APP = {
     currentTab: 'A',
     store: { A: {}, B: {} },
     charts: {},
-    
     rankData: {
         '二兵': {b:10550, p:0}, '一兵': {b:11130, p:0}, '上兵': {b:12280, p:0},
         '下士': {b:14645, p:5500}, '中士': {b:16585, p:6200}, '上士': {b:18525, p:7000},
@@ -181,24 +132,16 @@ const APP = {
     },
     ranks: ['二兵','一兵','上兵','下士','中士','上士','三等士官長','二等士官長','一等士官長','少尉','中尉','上尉','少校','中校','上校'],
 
-    N: v => parseFloat(String(v).replace(/,/g,'')) || 0,
-    F: n => Math.round(n).toLocaleString('en-US'),
-
     init: () => {
         const opts = APP.ranks.map(r => `<option value="${r}">${r}</option>`).join('');
         document.getElementById('currentRank').innerHTML = opts;
         document.getElementById('targetRank').innerHTML = opts;
 
-        // A 案現狀
-        APP.store.A = {
-            cRank:'少尉', tRank:'中校', years:20, realPay:0,
-            livingPct: 50, fixed: 5000, 
-            rate: 10, roi: 2.0, inf: 2.0, 
-            buyHouse:false, buyY:10, hPrice:1200, down:20, loanY:30
-        };
-        // B 案決策
-        APP.store.B = JSON.parse(JSON.stringify(APP.store.A));
-        APP.store.B.livingPct = 30; APP.store.B.rate = 40; APP.store.B.roi = 6.0;
+        // 初始化預設值
+        const def = { cRank:'少尉', tRank:'中校', years:20, realPay:0, livingPct:50, fixed:5000, rate:30, roi:6, inf:2, buyHouse:false, buyY:10, housePrice:1200, down:20, loanY:30 };
+        APP.store.A = JSON.parse(JSON.stringify(def));
+        APP.store.B = JSON.parse(JSON.stringify(def));
+        APP.store.B.livingPct = 30; // 預設方案 B 比較省
 
         APP.loadToUI('A');
         APP.update();
@@ -211,11 +154,6 @@ const APP = {
         APP.update();
     },
 
-    setLifestyle: (pct) => {
-        document.getElementById('livingPct').value = pct;
-        APP.updateInput('livingPct');
-    },
-
     updateInput: (id) => {
         document.getElementById(id + 'Label').innerText = document.getElementById(id).value + '%';
         APP.update();
@@ -225,18 +163,12 @@ const APP = {
         const d = APP.store[tab];
         d.cRank = document.getElementById('currentRank').value;
         d.tRank = document.getElementById('targetRank').value;
-        d.years = APP.N(document.getElementById('years').value);
-        d.realPay = APP.N(document.getElementById('realPay').value);
-        d.livingPct = APP.N(document.getElementById('livingPct').value);
-        d.fixed = APP.N(document.getElementById('fixedCost').value);
-        d.rate = APP.N(document.getElementById('investRate').value);
-        d.roi = APP.N(document.getElementById('roi').value);
-        d.inf = APP.N(document.getElementById('inflation').value);
+        d.years = parseInt(document.getElementById('years').value) || 20;
+        d.realPay = parseInt(document.getElementById('realPay').value) || 0;
+        d.livingPct = parseInt(document.getElementById('livingPct').value);
+        d.fixed = parseInt(document.getElementById('fixedCost').value);
+        d.roi = parseInt(document.getElementById('roi').value);
         d.buyHouse = document.getElementById('buyHouse').checked;
-        d.buyY = APP.N(document.getElementById('buyYear').value);
-        d.hPrice = APP.N(document.getElementById('housePrice').value);
-        d.down = APP.N(document.getElementById('downPayment').value);
-        d.loanY = APP.N(document.getElementById('loanYears').value);
     },
 
     loadToUI: (tab) => {
@@ -247,178 +179,73 @@ const APP = {
         document.getElementById('realPay').value = d.realPay;
         document.getElementById('livingPct').value = d.livingPct;
         document.getElementById('livingPctLabel').innerText = d.livingPct + '%';
-        document.getElementById('fixedCost').value = d.fixed;
-        document.getElementById('investRate').value = d.rate;
-        document.getElementById('investRateLabel').innerText = d.rate + '%';
         document.getElementById('roi').value = d.roi;
-        document.getElementById('inflation').value = d.inf;
+        document.getElementById('roiLabel').innerText = d.roi + '%';
         document.getElementById('buyHouse').checked = d.buyHouse;
-        document.getElementById('buyYear').value = d.buyY;
-        document.getElementById('housePrice').value = d.hPrice;
-        document.getElementById('downPayment').value = d.down;
-        document.getElementById('loanYears').value = d.loanY;
-        
-        document.getElementById('tab-A').className = `tab-btn ${tab==='A'?'active':''}`;
-        document.getElementById('tab-B').className = `tab-btn ${tab==='B'?'active':''}`;
-        document.getElementById('housing-area').className = d.buyHouse ? 'space-y-2 mt-2' : 'hidden';
-        
-        // 更新按鈕樣式
-        document.querySelectorAll('.tier-btn').forEach(b => {
-            const p = parseInt(b.innerText.match(/\d+/) || 0); 
-            b.classList.toggle('active', (p === d.livingPct || (p===0 && d.livingPct===50)));
-        });
+        document.getElementById('tab-A').classList.toggle('active', tab==='A');
+        document.getElementById('tab-B').classList.toggle('active', tab==='B');
+        document.getElementById('housing-area').classList.toggle('hidden', !d.buyHouse);
     },
 
-    calculateScenario: (d) => {
-        const years = d.years || 20;
-        const roi = d.roi / 100;
-        const inf = d.inf / 100;
-        
-        let inv = 0, cash = 0, hPrice = 0, loan = 0, hasH = false;
-        let cIdx = APP.ranks.indexOf(d.cRank);
-        let tIdx = APP.ranks.indexOf(d.tRank);
-        let yrInR = 0;
-        let auditFail = false;
+    calculate: (d) => {
+        let inv = 0, cash = 0, currentRankIdx = APP.ranks.indexOf(d.cRank);
+        let results = { years: [], net: [], logs: [], hasError: false };
 
-        const res = { years:[], net:[], inv:[], cash:[], house:[], logs:[], hasError: false };
-
-        for(let y=1; y<=years; y++) {
-            if (y > 1 && y % 4 === 0 && cIdx < tIdx) { cIdx++; yrInR = 0; } else yrInR++;
+        for(let y=1; y <= d.years; y++) {
+            if (y > 1 && y % 4 === 0 && currentRankIdx < APP.ranks.indexOf(d.tRank)) currentRankIdx++;
             
-            let rName = APP.ranks[cIdx];
-            const rInfo = APP.rankData[rName];
-
-            // 收入 (含 1.5% 微幅調薪)
-            let mPay = d.realPay > 0 ? d.realPay * Math.pow(1.015, y-1) : (rInfo.b * Math.pow(1.015, yrInR)) + rInfo.p + 15000;
-            let aInc = mPay * 13.5;
-
-            // [錄音要求] 退伍金一次領模擬
-            if (y === years && years >= 20) {
-                const pension = mPay * (100 + cIdx * 5) * 0.45;
-                aInc += pension;
-                rName += " (屆退)";
-            }
-
-            // [錄音要求] 生活型態通膨 (階級越高係數越高)
-            const creep = 1 + (cIdx * 0.03); 
-            const mLiving = (mPay * (d.livingPct / 100)) * creep;
-            let aExp = (mLiving + d.fixed) * 12 * Math.pow(1 + inf, y-1);
-
-            // 房貸
-            let mort = 0, downPay = 0;
-            if (d.buyHouse && y === d.buyY && !hasH) {
-                hasH = true; hPrice = d.hPrice * 10000;
-                downPay = hPrice * (d.down/100);
-                loan = hPrice - downPay;
-                if (cash >= downPay) cash -= downPay;
-                else { inv -= (downPay - cash); cash = 0; }
-            }
-            if (hasH && loan > 0) {
-                const r = 0.022/12, n = d.loanY * 12;
-                const pmt = loan * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1);
-                mort = pmt * 12;
-                loan -= (mort - (loan * 0.022));
-                if (loan < 0) loan = 0;
-            }
-
-            const aInv = (mPay * (d.rate / 100) * 12);
-
-            // [錄音要求] 收支平衡審計
-            if ((aExp + aInv + mort + downPay) > (aInc + (y===1?0:0))) {
-                // 如果總支出 > 總收入，且資產不足抵扣，則標記。
-                if ((aInc - aExp - aInv - mort - downPay) + inv + cash < 0) auditFail = true;
-            }
-
-            const surplus = aInc - aExp - aInv - mort;
-            inv = inv * (1 + roi) + aInv;
-            cash += surplus;
+            let rank = APP.ranks[currentRankIdx];
+            let pay = d.realPay > 0 ? d.realPay : (APP.rankData[rank].b + APP.rankData[rank].p + 15000);
+            let inc = pay * 13.5;
+            let exp = (pay * (d.livingPct/100) + d.fixed) * 12;
+            let invest = pay * 0.3 * 12; // 固定提撥 30% 投資
             
-            const hNet = hasH ? Math.max(0, hPrice - loan) : 0;
-            const net = inv + cash + hNet;
+            inv = inv * (1 + d.roi/100) + invest;
+            cash += (inc - exp - invest);
+            let net = inv + cash;
 
-            res.years.push(y); res.net.push(net); res.inv.push(inv); res.cash.push(cash); res.house.push(hNet);
-            res.logs.push({ y, rank: rName, inc: aInc, exp: aExp, inv: aInv, mort: mort + downPay, net: net });
+            if (inc < exp) results.hasError = true;
+
+            results.years.push(y);
+            results.net.push(net);
+            results.logs.push({ y, rank, inc, exp, invest, net });
         }
-        res.hasError = auditFail;
-        return res;
+        return results;
     },
 
     update: () => {
         APP.saveFromUI(APP.currentTab);
-        const rA = APP.calculateScenario(APP.store.A);
-        const rB = APP.calculateScenario(APP.store.B);
+        const rA = APP.calculate(APP.store.A);
+        const rB = APP.calculate(APP.store.B);
         
-        document.getElementById('kpi-A').innerText = APP.F(rA.net[rA.net.length-1]);
-        document.getElementById('kpi-B').innerText = APP.F(rB.net[rB.net.length-1]);
-        const alpha = rB.net[rB.net.length-1] - rA.net[rA.net.length-1];
-        document.getElementById('kpi-diff').innerText = (alpha>=0?'+':'') + APP.F(alpha);
-        
-        const currR = APP.currentTab === 'A' ? rA : rB;
-        const msg = document.getElementById('budget-msg');
-        if (currR.hasError) {
-            msg.innerText = "🚨 財務赤字警告：支出與投資超過收入總和，請調整計畫！";
-            msg.className = "bg-red-900/50 text-red-300 border border-red-500 p-2 rounded mb-4 animate-bounce font-bold";
-        } else {
-            msg.innerText = "✅ 財務平衡驗證通過：此方案年度收支與資產配置穩健。";
-            msg.className = "bg-emerald-900/20 text-emerald-400 border border-emerald-800 p-2 rounded mb-4 font-bold text-xs";
-        }
+        document.getElementById('kpi-A').innerText = Math.round(rA.net.slice(-1)).toLocaleString();
+        document.getElementById('kpi-B').innerText = Math.round(rB.net.slice(-1)).toLocaleString();
+        document.getElementById('kpi-diff').innerText = Math.round(rB.net.slice(-1) - rA.net.slice(-1)).toLocaleString();
 
-        APP.drawCharts(rA, rB);
+        const curr = APP.currentTab === 'A' ? rA : rB;
+        const msg = document.getElementById('budget-msg');
+        msg.innerText = curr.hasError ? "🚨 警示：年度支出超過收入！" : "✅ 財務平衡驗證通過";
+        msg.className = "alert-box " + (curr.hasError ? "bg-red-900 text-red-200" : "bg-emerald-900/30 text-emerald-400");
+
+        APP.renderCharts(rA, rB);
         
-        const tb = document.getElementById('table-body'); tb.innerHTML = '';
-        currR.logs.forEach(r => {
-            tb.innerHTML += `<tr class="hover:bg-slate-800/30">
-                <td class="text-center text-slate-500">Y${r.y}</td>
-                <td class="text-left font-bold text-slate-300">${r.rank}</td>
-                <td class="text-blue-400">${APP.F(r.inc)}</td>
-                <td class="text-rose-400">${APP.F(r.exp)}</td>
-                <td class="text-emerald-400">${APP.F(r.inv)}</td>
-                <td class="text-amber-500">${APP.F(r.mort)}</td>
-                <td class="font-bold text-white">${APP.F(r.net)}</td>
-            </tr>`;
+        let html = '';
+        curr.logs.forEach(l => {
+            html += `<tr><td>${l.y}</td><td style="text-align:left">${l.rank}</td><td>${Math.round(l.inc).toLocaleString()}</td><td>${Math.round(l.exp).toLocaleString()}</td><td>${Math.round(l.invest).toLocaleString()}</td><td>0</td><td>${Math.round(l.net).toLocaleString()}</td></tr>`;
         });
+        document.getElementById('table-body').innerHTML = html;
     },
 
-    drawCharts: (rA, rB) => {
-        const labels = rA.years.map(y => 'Y'+y);
-        const currR = APP.currentTab === 'A' ? rA : rB;
-
-        if(APP.charts.asset) APP.charts.asset.destroy();
+    renderCharts: (rA, rB) => {
+        const labels = rA.years.map(y => 'Y' + y);
+        if (APP.charts.asset) APP.charts.asset.destroy();
         APP.charts.asset = new Chart(document.getElementById('chart-asset'), {
             type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: '方案 A (Baseline)', data: rA.net, borderColor: '#64748b', borderWidth: 2, fill: false, tension: 0.3 },
-                    { label: '方案 B (Decision)', data: rB.net, borderColor: '#10b981', borderWidth: 3, fill: false, tension: 0.3 }
-                ]
-            }, options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { legend: { labels: { color: '#94a3b8' } } },
-                scales: { 
-                    y: { grid: { color: '#1e293b' }, ticks: { callback: v => v/10000 + '萬' } },
-                    x: { grid: { color: '#1e293b' } }
-                } 
-            }
-        });
-
-        if(APP.charts.wealth) APP.charts.wealth.destroy();
-        APP.charts.wealth = new Chart(document.getElementById('chart-wealth'), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: '投資複利', data: currR.inv, backgroundColor: '#10b981' },
-                    { label: '儲蓄現金', data: currR.cash, backgroundColor: '#3b82f6' },
-                    { label: '房產淨值', data: currR.house, backgroundColor: '#f97316' }
-                ]
-            }, options: { 
-                responsive: true, maintainAspectRatio: false, 
-                scales: { 
-                    x: { stacked: true, grid: { display: false } }, 
-                    y: { stacked: true, grid: { color: '#1e293b' }, ticks: { callback: v => v/10000 + '萬' } } 
-                } 
-            }
+            data: { labels, datasets: [
+                { label: '方案 A', data: rA.net, borderColor: '#38bdf8', tension: 0.3 },
+                { label: '方案 B', data: rB.net, borderColor: '#10b981', tension: 0.3 }
+            ]},
+            options: { responsive: true, maintainAspectRatio: false }
         });
     }
 };
