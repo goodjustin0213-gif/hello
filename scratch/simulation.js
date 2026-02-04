@@ -1,19 +1,23 @@
 /**
- * 國軍財務戰情室核心邏輯 v24.0 (Final Stable)
- * 特色：
- * 1. 所見即所得 (WYSIWYG)：直接讀取介面數值，杜絕暫存不同步問題。
- * 2. 暴力防呆：所有輸入強制轉型，空值自動補 0。
- * 3. 雙軌運算：同時計算 A/B 兩案並繪製比較圖。
+ * 國軍財務戰情室 PRO v25.0 (Tactical Edition) - Core Logic
+ * * 主要更新：
+ * 1. 引入 Chart.js 深色模式設定
+ * 2. 支出邏輯重構：改為「薪資百分比」連動
+ * 3. 房產邏輯：支援現金不足時自動變賣投資部位
  */
 
-const APP = {
-    currentTab: 'A',
-    // 資料暫存區 (用於切換 Tab 時保存數據)
-    store: { A: {}, B: {} },
-    charts: {},
+// --- 1. 全局圖表設定 (深色風格) ---
+Chart.defaults.color = '#64748b'; // 文字顏色 (Slate-500)
+Chart.defaults.borderColor = '#334155'; // 格線顏色 (Slate-700)
+Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans TC', sans-serif";
 
-    // --- 資料層：2025 軍職薪資資料庫 (本俸+專業加給預估) ---
-    rankDB: {
+const APP = {
+    currentTab: 'A',       // 目前顯示的分頁
+    store: { A: {}, B: {} }, // 資料暫存區
+    charts: {},            // 圖表實例
+
+    // --- 2. 2025 薪資結構資料庫 (本俸 + 專業加給參考值) ---
+    rankData: {
         '二兵': {b:10550, p:0}, '一兵': {b:11130, p:0}, '上兵': {b:12280, p:0},
         '下士': {b:14645, p:5500}, '中士': {b:16585, p:6200}, '上士': {b:18525, p:7000},
         '三等士官長': {b:22750, p:8200}, '二等士官長': {b:25050, p:9500}, '一等士官長': {b:28880, p:10800},
@@ -22,73 +26,64 @@ const APP = {
     },
     ranks: ['二兵','一兵','上兵','下士','中士','上士','三等士官長','二等士官長','一等士官長','少尉','中尉','上尉','少校','中校','上校','少將'],
 
-    // --- 工具函式 ---
-    // N: 強制轉數值，移除逗號，空值回傳 0
+    // 工具函式：數值格式化
     N: v => parseFloat(String(v).replace(/,/g,'')) || 0,
-    // F: 金額千分位格式化
     F: n => Math.round(n).toLocaleString('en-US'),
 
-    // --- 初始化 ---
+    // --- 3. 初始化 ---
     init: () => {
-        // Chart.js 全域設定
-        Chart.defaults.font.family = "'Noto Sans TC', sans-serif";
-        Chart.defaults.color = '#64748b';
-        Chart.defaults.borderColor = '#e2e8f0';
-
-        // 1. 注入階級選單
+        // 產生階級選單
         const opts = APP.ranks.map(r => `<option value="${r}">${r}</option>`).join('');
         document.getElementById('currentRank').innerHTML = opts;
         document.getElementById('targetRank').innerHTML = opts;
 
-        // 2. 初始化 A/B 案預設值
+        // 設定預設參數
         const def = {
             cRank:'少尉', tRank:'中校', years:20, realPay:0,
-            living:15000, fixed:5000, 
-            rate:30, roi:6, inf:2,
-            buyHouse:false, buyY:10, hPrice:1200, down:20, loanY:30,
-            listAllow: [], listExp: [], listInv: []
+            livingPct: 30, // [核心變更] 改為百分比，預設 30%
+            fixed: 5000,   // 剛性支出 (保險/孝親)
+            rate: 30,      // 投資提撥率
+            roi: 6,        // 年化報酬率
+            inf: 2,        // 通膨率
+            buyHouse:false, buyY:10, hPrice:1200, down:20, loanY:30, // 房產參數
+            listExp: []    // 額外支出列表
         };
         
-        // 深拷貝預設值
+        // 複製預設值給 A/B 兩案
         APP.store.A = JSON.parse(JSON.stringify(def));
         APP.store.B = JSON.parse(JSON.stringify(def));
         
-        // 設定 B 案差異 (對照組)
-        APP.store.B.roi = 1.5; // 定存利率
-        APP.store.B.rate = 10; // 低儲蓄率
+        // 設定 B 案 (對照組) 預設值：保守定存族，花費較高
+        APP.store.B.roi = 1.2; 
+        APP.store.B.rate = 20; 
+        APP.store.B.livingPct = 40; 
 
-        // 載入 A 案到介面
         APP.loadToUI('A');
-        
-        // 啟動第一次運算
         APP.update();
     },
 
-    // --- 介面操作邏輯 ---
-    
-    // 切換方案 A/B
+    // --- 4. 介面操作邏輯 ---
     switchTab: (tab) => {
-        APP.saveFromUI(APP.currentTab); // 切換前先將目前畫面存入暫存
+        APP.saveFromUI(APP.currentTab); // 切換前先存檔
         APP.currentTab = tab;
         
         // 更新按鈕樣式
-        document.getElementById('tab-A').className = tab==='A' ? 'tab active' : 'tab';
-        document.getElementById('tab-B').className = tab==='B' ? 'tab active' : 'tab';
+        document.getElementById('tab-A').className = `s-btn ${tab==='A'?'active':''}`;
+        document.getElementById('tab-B').className = `s-btn ${tab==='B'?'active':''}`;
         
-        APP.loadToUI(tab); // 載入新方案數據
+        APP.loadToUI(tab); // 讀取新分頁數據
         APP.update();
     },
 
-    // 從 UI 讀取資料存入 Store (暫存)
     saveFromUI: (tab) => {
         const d = APP.store[tab];
-        // 讀取一般欄位
+        // 讀取 DOM 數值
         d.cRank = document.getElementById('currentRank').value;
         d.tRank = document.getElementById('targetRank').value;
         d.years = APP.N(document.getElementById('years').value);
         d.realPay = APP.N(document.getElementById('realPay').value);
         
-        d.living = APP.N(document.getElementById('livingCost').value);
+        d.livingPct = APP.N(document.getElementById('livingPct').value); // 百分比
         d.fixed = APP.N(document.getElementById('fixedCost').value);
         
         d.rate = APP.N(document.getElementById('investRate').value);
@@ -101,111 +96,94 @@ const APP = {
         d.down = APP.N(document.getElementById('downPayment').value);
         d.loanY = APP.N(document.getElementById('loanYears').value);
 
-        // 讀取動態列表
-        d.listAllow = APP.readList('list-allowance');
         d.listExp = APP.readList('list-expense');
-        d.listInv = APP.readList('list-invest');
     },
 
-    // 將 Store 資料填回 UI
     loadToUI: (tab) => {
         const d = APP.store[tab];
-        // 回填一般欄位
+        // 將數值回填 DOM
         document.getElementById('currentRank').value = d.cRank;
         document.getElementById('targetRank').value = d.tRank;
         document.getElementById('years').value = d.years;
         document.getElementById('realPay').value = d.realPay;
         
-        document.getElementById('livingCost').value = d.living;
+        document.getElementById('livingPct').value = d.livingPct;
+        document.getElementById('livingPctLabel').innerText = d.livingPct + '%';
         document.getElementById('fixedCost').value = d.fixed;
         
         document.getElementById('investRate').value = d.rate;
-        document.getElementById('rateLabel').innerText = d.rate + '%';
+        document.getElementById('investRateLabel').innerText = d.rate + '%';
         document.getElementById('roi').value = d.roi;
         document.getElementById('inflation').value = d.inf;
         
         document.getElementById('buyHouse').checked = d.buyHouse;
-        document.getElementById('housing-area').className = d.buyHouse ? 'space-y-2 text-sm' : 'hidden';
+        document.getElementById('housing-area').className = d.buyHouse ? 'space-y-3 pt-2 border-t border-slate-700' : 'hidden';
         document.getElementById('buyYear').value = d.buyY;
         document.getElementById('housePrice').value = d.hPrice;
         document.getElementById('downPayment').value = d.down;
         document.getElementById('loanYears').value = d.loanY;
 
-        // 回填動態列表
-        APP.renderList('list-allowance', d.listAllow);
         APP.renderList('list-expense', d.listExp);
-        APP.renderList('list-invest', d.listInv);
     },
 
-    // --- 動態列表管理 ---
-    
-    // 新增項目
+    // --- 5. 動態列表處理 ---
     add: (id) => {
         const c = document.getElementById(id);
         const div = document.createElement('div');
-        div.className = 'item-row';
+        div.className = 'flex gap-2 mb-2 items-center';
         div.innerHTML = `
-            <input type="text" class="border p-1 text-sm rounded flex-1" value="項目">
-            <input type="number" class="border p-1 text-sm rounded w-20 text-right" value="0" oninput="APP.update()">
-            <div class="btn-del" onclick="this.parentElement.remove(); APP.update()">✕</div>
+            <input type="text" class="flex-1" value="項目" placeholder="名稱">
+            <input type="number" class="w-20 text-right" value="0" oninput="APP.update()">
+            <button class="text-rose-500 hover:text-rose-400 px-2" onclick="this.parentElement.remove(); APP.update()">✕</button>
         `;
         c.appendChild(div);
-        APP.update(); // 新增後立即運算
+        APP.update();
     },
     
-    // 渲染列表 (用於 loadToUI)
     renderList: (id, list) => {
         const c = document.getElementById(id); c.innerHTML = '';
         list.forEach(i => {
             const div = document.createElement('div');
-            div.className = 'item-row';
+            div.className = 'flex gap-2 mb-2 items-center';
             div.innerHTML = `
-                <input type="text" class="border p-1 text-sm rounded flex-1" value="${i.n}">
-                <input type="number" class="border p-1 text-sm rounded w-20 text-right" value="${i.v}" oninput="APP.update()">
-                <div class="btn-del" onclick="this.parentElement.remove(); APP.update()">✕</div>
+                <input type="text" class="flex-1" value="${i.n}">
+                <input type="number" class="w-20 text-right" value="${i.v}" oninput="APP.update()">
+                <button class="text-rose-500 hover:text-rose-400 px-2" onclick="this.parentElement.remove(); APP.update()">✕</button>
             `;
             c.appendChild(div);
         });
     },
 
-    // 讀取列表 (用於 saveFromUI)
     readList: (id) => {
         const arr = [];
-        document.getElementById(id).querySelectorAll('.item-row').forEach(row => {
+        document.getElementById(id).querySelectorAll('div').forEach(row => {
             const inputs = row.querySelectorAll('input');
-            arr.push({ n: inputs[0].value, v: APP.N(inputs[1].value) });
+            if(inputs.length >= 2) arr.push({ n: inputs[0].value, v: APP.N(inputs[1].value) });
         });
         return arr;
     },
 
-    // --- 核心運算引擎 (The Engine) ---
+    // --- 6. 核心運算引擎 (Engine) ---
     calculateScenario: (d) => {
-        // 1. 參數解構
         const years = d.years || 20;
         const inflation = d.inf / 100;
         const roi = d.roi / 100;
         const investPct = d.rate / 100;
+        const livingPct = d.livingPct / 100; // [變更點] 讀取生活費百分比
         
         let rank = d.cRank;
         let inv = 0, cash = 0, house = 0, loan = 0, hasHouse = false;
         
-        // 階級索引
+        const rankIdx = APP.ranks.indexOf(rank);
         const targetIdx = APP.ranks.indexOf(d.tRank);
-        let currentRankIdx = APP.ranks.indexOf(rank);
+        let currentRankIdx = rankIdx;
         let yearInRank = 0;
 
-        // 計算各列表總和
-        const sumAllow = d.listAllow.reduce((a,b)=>a+b.v,0);
-        // 總月支出 = 基本 + 固定 + 額外列表
-        const sumExp = d.listExp.reduce((a,b)=>a+b.v,0) + d.living + d.fixed;
-        // 固定月投資
-        const sumInv = d.listInv.reduce((a,b)=>a+b.v,0);
-
+        const sumExpList = d.listExp.reduce((a,b)=>a+b.v,0);
         const res = { years:[], net:[], inv:[], cash:[], house:[], logs:[] };
 
-        // 2. 逐年模擬
         for(let y=1; y<=years; y++) {
-            // A. 晉升邏輯 (每4年升一階，直到目標)
+            // 晉升邏輯：每4年升一階，直到目標階級
             if (y > 1 && y % 4 === 0 && currentRankIdx < targetIdx) {
                 currentRankIdx++; yearInRank = 0;
             } else yearInRank++;
@@ -213,133 +191,209 @@ const APP = {
             const rName = APP.ranks[currentRankIdx];
             const rInfo = APP.rankData[rName];
 
-            // B. 收入計算
+            // A. 收入計算
             let monthPay = 0;
             if (d.realPay > 0) {
-                // 若有填實領，以此為基準隨年資微幅成長
+                // 若有輸入實領薪資，假設每年微幅成長 1.5%
                 monthPay = d.realPay * Math.pow(1.015, y-1); 
             } else {
-                // 資料庫模式：本俸(年資成長) + 專業 + 1.5萬志願役 + 列表加給
+                // 自動計算：本俸(隨年資成長) + 專業加給 + 志願役加給(15000)
                 const base = rInfo.b * Math.pow(1.015, yearInRank);
-                monthPay = base + rInfo.p + 15000 + sumAllow;
+                monthPay = base + rInfo.p + 15000;
             }
-            const annualInc = monthPay * 13.5;
+            const annualInc = monthPay * 13.5; // 年薪約 13.5 個月
 
-            // C. 房貸計算
+            // B. 房產處理
             let mortPay = 0;
             if (d.buyHouse && y === d.buyY && !hasHouse) {
-                hasHouse = true; house = d.hPrice * 10000;
-                const down = house * (d.down/100);
+                hasHouse = true; 
+                house = d.hPrice * 10000; // 轉為元
+                const down = house * (d.down/100); // 頭期款
                 loan = house - down;
-                // 付頭期 (優先扣現金)
-                if(cash >= down) cash -= down;
-                else { inv -= (down-cash); cash = 0; }
+
+                // 支付頭期款邏輯：先扣現金，不夠再賣股票
+                if(cash >= down) {
+                    cash -= down;
+                } else { 
+                    const remain = down - cash;
+                    cash = 0; 
+                    inv -= remain; // 從投資帳戶扣除
+                }
             }
             if (hasHouse && loan > 0) {
-                // 本息均攤公式
-                const r = 0.022/12; // 房貸利率固定 2.2% 簡化計算
-                const n = d.loanY*12;
+                // 本息均攤計算
+                const r = 0.022/12, n = d.loanY*12; // 2.2% 利率
                 const pmt = loan * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1);
                 mortPay = pmt * 12;
-                loan -= (mortPay - loan*0.022); // 簡扣本金
+                // 簡易扣除本金 (模擬)
+                loan -= (mortPay - loan*0.022); 
                 if(loan<0) loan=0;
             }
 
-            // D. 支出與分配 (會計恆等式)
-            const annualExp = sumExp * 12 * Math.pow(1+inflation, y-1); // 支出隨通膨增加
-            const annualInv = (monthPay * investPct * 12) + (sumInv * 12); // 投資 = 提撥 + 定投
-            const surplus = annualInc - annualExp - annualInv - mortPay;   // 結餘
+            // C. 支出計算 (核心變更)
+            // 生活費是月薪的 %，模擬「賺越多花越多」的人性
+            const livingAmt = monthPay * livingPct; 
+            const totalMonthExp = livingAmt + d.fixed + sumExpList;
+            
+            // 加計通膨
+            const annualExp = totalMonthExp * 12 * Math.pow(1+inflation, y-1);
+            
+            // D. 投資投入
+            const annualInv = (monthPay * investPct * 12);
+            
+            // E. 年度結餘
+            const surplus = annualInc - annualExp - annualInv - mortPay;
 
-            // E. 滾存
+            // F. 複利滾存
             inv = inv * (1+roi) + annualInv;
-            cash += surplus; // 結餘計入現金池 (負值即負債)
+            cash += surplus; // 結餘存入現金
+            
+            // 計算淨資產 (投資 + 現金 + 房屋淨值)
             const houseNet = hasHouse ? Math.max(0, house-loan) : 0;
             const net = inv + cash + houseNet;
 
-            // F. 紀錄
-            res.years.push(y); res.net.push(net); res.inv.push(inv); res.cash.push(cash); res.house.push(houseNet);
-            res.logs.push({ y, rank: rName, inc: annualInc, exp: annualExp, inv: annualInv, mort: mortPay, net });
+            // 紀錄數據
+            res.years.push(y); 
+            res.net.push(net); 
+            res.inv.push(inv); 
+            res.cash.push(cash); 
+            res.house.push(houseNet);
+            res.logs.push({ 
+                y, rank: rName, inc: annualInc, exp: annualExp, 
+                inv: annualInv, mort: mortPay, net 
+            });
         }
         return res;
     },
 
-    // --- 主更新入口 ---
+    // --- 7. 更新畫面與圖表 ---
     update: () => {
-        // 1. 將當前 UI 狀態存入 Store
         APP.saveFromUI(APP.currentTab);
         
-        // 2. 分別運算 A 案與 B 案
+        // 分別計算兩案
         const rA = APP.calculateScenario(APP.store.A);
         const rB = APP.calculateScenario(APP.store.B);
         
-        // 3. 顯示 KPI
+        // 更新 KPI 卡片
         const lastA = rA.net.length-1;
         const lastB = rB.net.length-1;
         document.getElementById('kpi-A').innerText = APP.F(rA.net[lastA]);
         document.getElementById('kpi-B').innerText = APP.F(rB.net[lastB]);
+        
+        // 計算 Alpha (效益差額)
         const diff = rA.net[lastA] - rB.net[lastB];
         const diffEl = document.getElementById('kpi-diff');
         diffEl.innerText = (diff>=0?'+':'') + APP.F(diff);
-        diffEl.className = `kpi-val ${diff>=0 ? 'text-emerald-600' : 'text-red-600'}`;
+        diffEl.className = diff >= 0 ? 'stat-value text-emerald-400' : 'stat-value text-rose-400';
         
-        // 4. 繪製圖表
+        // 繪製圖表
         APP.drawCharts(rA, rB);
         
-        // 5. 繪製表格 (僅顯示當前 Tab 的數據)
+        // 更新表格 (只顯示當前 Tab)
         const currR = APP.currentTab === 'A' ? rA : rB;
         const tb = document.getElementById('table-body'); tb.innerHTML = '';
         currR.logs.forEach(r => {
             tb.innerHTML += `<tr>
-                <td class="p-2 border-b text-center text-gray-500 font-mono">Y${r.y}</td>
-                <td class="p-2 border-b font-bold text-gray-700">${r.rank}</td>
-                <td class="p-2 border-b text-right text-blue-600">${APP.F(r.inc)}</td>
-                <td class="p-2 border-b text-right text-red-500">${APP.F(r.exp)}</td>
-                <td class="p-2 border-b text-right text-green-600">${APP.F(r.inv)}</td>
-                <td class="p-2 border-b text-right text-orange-500">${APP.F(r.mort)}</td>
-                <td class="p-2 border-b text-right font-black text-gray-800">${APP.F(r.net)}</td>
+                <td class="pl-4 text-slate-500">Y${r.y}</td>
+                <td class="text-left font-bold text-white">${r.rank}</td>
+                <td class="text-blue-400">${APP.F(r.inc)}</td>
+                <td class="text-rose-400">${APP.F(r.exp)}</td>
+                <td class="text-emerald-400">${APP.F(r.inv)}</td>
+                <td class="text-orange-400">${APP.F(r.mort)}</td>
+                <td class="pr-4 font-black text-cyan-400">${APP.F(r.net)}</td>
             </tr>`;
         });
         
-        // 控制購屋區塊顯示
+        // 房產區域顯示開關
         const buy = document.getElementById('buyHouse').checked;
-        document.getElementById('housing-area').className = buy ? 'space-y-2 text-sm mt-2' : 'hidden';
+        document.getElementById('housing-area').className = buy ? 'space-y-3 pt-2 border-t border-slate-700 mt-2 block' : 'hidden';
     },
 
-    // --- 圖表繪製 ---
     drawCharts: (rA, rB) => {
-        // 取兩者最長年份，避免 X 軸不對齊
-        const maxLen = Math.max(rA.years.length, rB.years.length);
-        const labels = Array.from({length: maxLen}, (_, i) => `Y${i+1}`);
+        const labels = rA.years.map(y => 'Y'+y);
         const currR = APP.currentTab === 'A' ? rA : rB;
 
-        // Chart 1: 資產對照 (Line)
+        // Chart 1: 資產成長曲線
+        const ctx1 = document.getElementById('chart-asset').getContext('2d');
         if(APP.charts.asset) APP.charts.asset.destroy();
-        APP.charts.asset = new Chart(document.getElementById('chart-asset'), {
+        
+        // 漸層效果
+        const gradientA = ctx1.createLinearGradient(0, 0, 0, 400);
+        gradientA.addColorStop(0, 'rgba(6, 182, 212, 0.5)'); // Cyan
+        gradientA.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
+        APP.charts.asset = new Chart(ctx1, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
-                    { label: '方案 A', data: rA.net, borderColor: '#2563eb', borderWidth: 3, tension: 0.3, pointRadius:0 },
-                    { label: '方案 B', data: rB.net, borderColor: '#94a3b8', borderWidth: 2, borderDash: [5,5], pointRadius:0 }
+                    { 
+                        label: 'Plan A (主案)', 
+                        data: rA.net, 
+                        borderColor: '#22d3ee', 
+                        backgroundColor: gradientA,
+                        borderWidth: 2, 
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6
+                    },
+                    { 
+                        label: 'Plan B (對照)', 
+                        data: rB.net, 
+                        borderColor: '#64748b', 
+                        borderWidth: 2, 
+                        borderDash: [5,5], 
+                        tension: 0.4,
+                        pointRadius: 0
+                    }
                 ]
-            }, options: { responsive: true, maintainAspectRatio: false }
+            }, 
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: {family: 'JetBrains Mono'} } },
+                    tooltip: { 
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)', 
+                        titleColor: '#fff', 
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        padding: 10
+                    }
+                },
+                scales: {
+                    x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                    y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', callback: v => v/10000 + '萬' } }
+                }
+            }
         });
 
-        // Chart 2: 資產結構 (Bar - Stacked)
+        // Chart 2: 資產堆疊圖
         if(APP.charts.wealth) APP.charts.wealth.destroy();
         APP.charts.wealth = new Chart(document.getElementById('chart-wealth'), {
             type: 'bar',
             data: {
                 labels: currR.years.map(y=>'Y'+y),
                 datasets: [
-                    { label: '房產淨值', data: currR.house, backgroundColor: '#f97316', stack: '1' },
-                    { label: '投資累積', data: currR.inv, backgroundColor: '#10b981', stack: '1' },
-                    { label: '現金結餘', data: currR.cash, backgroundColor: '#3b82f6', stack: '1' }
+                    { label: '投資', data: currR.inv, backgroundColor: '#10b981', stack: '1' },
+                    { label: '現金', data: currR.cash, backgroundColor: '#3b82f6', stack: '1' },
+                    { label: '房產淨值', data: currR.house, backgroundColor: '#f97316', stack: '1' }
                 ]
-            }, options: { responsive: true, maintainAspectRatio: false, scales: { x: {stacked: true}, y: {stacked: true} } }
+            }, 
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { legend: { position:'bottom', labels: { boxWidth: 12, padding: 20 } } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#1e293b' }, ticks: { callback: v => v/10000 + '萬' } }
+                }
+            }
         });
     }
 };
 
-// 系統啟動
 window.onload = APP.init;
