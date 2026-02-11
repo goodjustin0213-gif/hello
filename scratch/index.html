@@ -25,7 +25,6 @@
         .kpi-card { background: rgba(30, 41, 59, 0.5); border-left: 4px solid #334155; padding: 15px; border-radius: 6px; }
         .chart-container { height: 280px; background: rgba(30, 41, 59, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 15px; border: 1px solid #334155; }
         
-        /* 表格 */
         .data-table { width: 100%; font-size: 0.75rem; border-collapse: collapse; }
         .data-table th { text-align: right; padding: 8px; color: #64748b; border-bottom: 1px solid #334155; }
         .data-table td { text-align: right; padding: 8px; border-bottom: 1px solid #1e293b; font-family: 'JetBrains Mono'; }
@@ -140,18 +139,10 @@
 </main>
 
 <script>
-/**
- * 國軍財務戰情室 v28.0 (論文實證版)
- * 核心新增：
- * 1. loadCase(): 快速載入 Case 1-4 參數。
- * 2. projectAge80(): 推算 80 歲資產。
- * 3. mortgageStress(): 計算房貸負擔率。
- */
 Chart.defaults.color = '#64748b';
 Chart.defaults.borderColor = '#1e293b';
 
 const APP = {
-    // 薪資 (本俸+專業)
     rankData: {
         '二兵': {b:10550, p:0}, '一兵': {b:11130, p:0}, '上兵': {b:12280, p:0},
         '下士': {b:14645, p:5500}, '中士': {b:16585, p:6200}, '上士': {b:18525, p:7000},
@@ -163,7 +154,6 @@ const APP = {
     
     charts: {},
 
-    // 工具
     N: v => parseFloat(String(v).replace(/,/g,'')) || 0,
     F: n => Math.round(n).toLocaleString('en-US'),
 
@@ -171,7 +161,7 @@ const APP = {
         const opts = APP.ranks.map(r => `<option value="${r}">${r}</option>`).join('');
         document.getElementById('currentRank').innerHTML = opts;
         document.getElementById('targetRank').innerHTML = opts;
-        APP.loadCase(1); // 預設載入案例一
+        APP.loadCase(1);
     },
 
     updateInput: (id) => {
@@ -179,27 +169,21 @@ const APP = {
         APP.update();
     },
 
-    // --- 論文案例載入器 (Case Loader) ---
     loadCase: (id) => {
-        // 重置按鈕樣式
         document.querySelectorAll('.btn-case').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.btn-case')[id-1].classList.add('active');
 
-        // 定義案例參數 (依據論文 5.2 - 5.5)
         let p = {};
-        if (id === 1) { // 案例一：大成功 (積極投資+早期置產)
+        if (id === 1) {
             p = { cRank:'少尉', tRank:'上校', years:20, living:50, rate:30, roi:8.0, buy:true, bY:5, hP:1200, down:20 };
-        } else if (id === 2) { // 案例二：小成功 (穩健+租屋)
+        } else if (id === 2) {
             p = { cRank:'少尉', tRank:'中校', years:20, living:65, rate:15, roi:4.5, buy:false, bY:0, hP:0, down:0 }; 
-            // 註：living 65% 包含租金
-        } else if (id === 3) { // 案例三：小失敗 (保守+通膨)
+        } else if (id === 3) {
             p = { cRank:'少尉', tRank:'少校', years:20, living:85, rate:5, roi:1.5, buy:false, bY:0, hP:0, down:0 };
-        } else if (id === 4) { // 案例四：大失敗 (高負債)
+        } else if (id === 4) {
             p = { cRank:'少尉', tRank:'少校', years:20, living:40, rate:0, roi:0, buy:true, bY:1, hP:1500, down:10 };
-            // 註：高價房產 + 買太早 + 低頭期 = 災難
         }
 
-        // 填入 UI
         document.getElementById('currentRank').value = p.cRank;
         document.getElementById('targetRank').value = p.tRank;
         document.getElementById('years').value = p.years;
@@ -218,9 +202,7 @@ const APP = {
         APP.updateInput('investRate');
     },
 
-    // --- 核心運算 ---
     update: () => {
-        // 1. 讀取 UI
         const d = {
             cRank: document.getElementById('currentRank').value,
             tRank: document.getElementById('targetRank').value,
@@ -237,7 +219,6 @@ const APP = {
             realPay: APP.N(document.getElementById('realPay').value)
         };
 
-        // 2. 執行運算
         let inv = 0, cash = 0, hasHouse = false, houseVal = 0, loan = 0;
         let cIdx = APP.ranks.indexOf(d.cRank);
         let tIdx = APP.ranks.indexOf(d.tRank);
@@ -252,22 +233,18 @@ const APP = {
             let rName = APP.ranks[cIdx];
             const rInfo = APP.rankData[rName];
 
-            // 收入
             let mPay = d.realPay > 0 ? d.realPay * Math.pow(1.015, y-1) : (rInfo.b * Math.pow(1.015, yrInR) + rInfo.p + 15000);
             let aInc = mPay * 13.5;
 
-            // 退伍金 (20年)
             if (y === d.years && d.years >= 20) {
                 const pension = mPay * (100 + cIdx * 5) * 0.45;
                 aInc += pension;
                 rName += " (退伍)";
             }
 
-            // 支出 (通膨)
             const creep = 1 + (cIdx * 0.03);
             const aExp = (mPay * (d.livingPct/100) * creep + 5000) * 12 * Math.pow(1 + d.inf/100, y-1);
 
-            // 房產
             let mort = 0, downPay = 0;
             if (d.buyHouse && y === d.buyY && !hasHouse) {
                 hasHouse = true; houseVal = d.hPrice * 10000;
@@ -281,14 +258,12 @@ const APP = {
                 mort = pmt * 12;
                 loan -= (mort - loan * 0.022);
                 
-                // 記錄最大房貸負擔率
                 const ratio = (pmt / mPay) * 100;
                 if (ratio > maxMortgageRatio) maxMortgageRatio = ratio;
             }
 
             const aInv = (mPay * (d.rate / 100) * 12);
             
-            // 紅字判定
             if ((aExp + aInv + mort + downPay) > aInc && (cash + inv + aInc - aExp - aInv - mort - downPay) < 0) hasError = true;
 
             const surplus = aInc - aExp - aInv - mort;
@@ -301,24 +276,18 @@ const APP = {
             res.logs.push({ y, rank: rName, inc: aInc, exp: aExp, inv: aInv, mort: mort+downPay, net });
         }
 
-        // 3. 顯示結果
         const net20 = res.net[res.net.length-1];
         document.getElementById('kpi-net20').innerText = APP.F(net20);
         
-        // 80歲推估 (Assuming retires at 42, so 38 more years)
-        // 實質報酬率 = (1+名目)/(1+通膨) - 1
         const realRoi = (1 + d.roi/100) / (1 + d.inf/100) - 1;
         const yearsTo80 = 38;
-        // 假設退伍後資產以實質報酬率滾動 (不考慮退伍後工作收入，純看資產力)
         const net80 = net20 * Math.pow(1 + realRoi, yearsTo80);
         document.getElementById('kpi-net80').innerText = APP.F(net80);
 
-        // 房貸警示
         const kpiMort = document.getElementById('kpi-mortgage');
         kpiMort.innerText = maxMortgageRatio.toFixed(1) + '%';
         kpiMort.className = maxMortgageRatio > 50 ? "kpi-val text-rose-500 animate-pulse" : "kpi-val text-emerald-400";
 
-        // 預算警示
         const alertBox = document.getElementById('budget-alert');
         if (hasError || maxMortgageRatio > 60) {
             alertBox.style.display = 'block';
