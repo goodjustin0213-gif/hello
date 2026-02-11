@@ -1,16 +1,18 @@
 /**
- * 國軍財務戰情室 v29.0 (Real-World Calibration)
- * 修正：
- * 1. 薪資過高問題：引入 Deductions (扣除額) 邏輯，模擬「實領薪資」。
- * 2. 獎金校正：下修為 2.0 個月 (考績乙等模擬)。
- * 3. 戰鬥/行政差異：新增 salaryLevel 滑桿，允許使用者全盤下修薪資。
+ * 國軍財務戰情室 v29.0 Core Logic (JS)
+ * 修正重點：
+ * 1. 實領校正 (Take-home Pay): 預設扣除 12% (退撫/健保/軍保/雜費)。
+ * 2. 獎金校正 (Bonus Fix): 基數僅含本俸+專業，且設為 2.0 個月。
+ * 3. 薪資滑桿 (Salary Slider): 允許使用者全盤下修/上調薪資水準。
  */
 
+// Chart.js 全局設定
 Chart.defaults.color = '#64748b';
 Chart.defaults.borderColor = '#1e293b';
+Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans TC', sans-serif";
 
 const APP = {
-    // 2025 薪資基準 (參考值，將透過 Slider 進行動態下修)
+    // 2025 薪資基準 (參考值，b=本俸, p=專業加給)
     rankData: {
         '二兵': {b:10550, p:0}, '一兵': {b:11130, p:0}, '上兵': {b:12280, p:0},
         '下士': {b:14645, p:3000}, '中士': {b:16585, p:3500}, '上士': {b:18525, p:4000},
@@ -20,27 +22,31 @@ const APP = {
     },
     ranks: ['二兵','一兵','上兵','下士','中士','上士','三等士官長','二等士官長','一等士官長','少尉','中尉','上尉','少校','中校','上校'],
     
-    charts: {},
+    charts: {}, // 圖表物件暫存
+    
+    // 工具函式
     N: v => parseFloat(String(v).replace(/,/g,'')) || 0,
     F: n => Math.round(n).toLocaleString('en-US'),
 
+    // --- 初始化 ---
     init: () => {
-        // 1. 生成階級
+        // 1. 生成階級選單
         const opts = APP.ranks.map(r => `<option value="${r}">${r}</option>`).join('');
         document.getElementById('currentRank').innerHTML = opts;
         document.getElementById('targetRank').innerHTML = opts;
         
-        // 2. 插入「薪資修正滑桿」到 UI (動態插入，無需改 HTML)
+        // 2. 動態插入「薪資修正滑桿」
         APP.injectSalarySlider();
-
-        // 3. 載入預設
+        
+        // 3. 預設載入案例一
         APP.loadCase(1);
     },
 
-    // 動態插入薪資修正滑桿 (解決 HTML 未更新問題)
+    // 動態插入滑桿 (不需修改 HTML 結構)
     injectSalarySlider: () => {
-        const target = document.querySelector('.input-group label.text-cyan-400').parentNode;
-        if (!document.getElementById('salaryLevel')) {
+        // 尋找插入點 (CAREER 區塊)
+        const targetGroup = document.querySelector('#career-group') || document.querySelector('.input-group'); 
+        if (targetGroup && !document.getElementById('salaryLevel')) {
             const div = document.createElement('div');
             div.className = 'mb-2 pt-2 border-t border-slate-700';
             div.innerHTML = `
@@ -48,15 +54,17 @@ const APP = {
                     <span class="text-xs text-amber-400">薪資修正係數 (行政/戰鬥)</span>
                     <span id="salaryLevelLabel" class="text-xs text-white">100%</span>
                 </div>
-                <input type="range" id="salaryLevel" min="70" max="130" value="100" oninput="APP.updateSalaryInput()">
-                <p class="text-[10px] text-slate-500">若覺得薪資太高，請將此拉低至 80%~90%</p>
+                <input type="range" id="salaryLevel" min="70" max="130" value="100" class="w-full" oninput="APP.updateSalaryInput()">
+                <p class="text-[10px] text-slate-500 mt-1">若覺得薪資太高，請往左拉至 80%~90%</p>
             `;
-            target.insertBefore(div, target.children[1]);
+            // 插在標題之後
+            targetGroup.insertBefore(div, targetGroup.children[1]);
         }
     },
 
     updateSalaryInput: () => {
-        document.getElementById('salaryLevelLabel').innerText = document.getElementById('salaryLevel').value + '%';
+        const val = document.getElementById('salaryLevel').value;
+        document.getElementById('salaryLevelLabel').innerText = val + '%';
         APP.update();
     },
 
@@ -65,20 +73,30 @@ const APP = {
         APP.update();
     },
 
+    // --- 論文案例載入器 ---
     loadCase: (id) => {
-        // 重置按鈕
+        // 切換按鈕樣式
         document.querySelectorAll('.btn-case').forEach(b => b.classList.remove('active'));
         const btns = document.querySelectorAll('.btn-case');
         if(btns.length >= id) btns[id-1].classList.add('active');
 
         let p = {};
         switch(id) {
-            case 1: p = { cRank:'少尉', tRank:'上校', years:20, living:50, rate:30, roi:8.0, buy:true, bY:5, hP:1200, down:20 }; break;
-            case 2: p = { cRank:'少尉', tRank:'中校', years:20, living:65, rate:15, roi:4.5, buy:false, bY:0, hP:0, down:0 }; break;
-            case 3: p = { cRank:'少尉', tRank:'少校', years:20, living:85, rate:5, roi:1.5, buy:false, bY:0, hP:0, down:0 }; break;
-            case 4: p = { cRank:'少尉', tRank:'少校', years:20, living:40, rate:0, roi:0, buy:true, bY:1, hP:1500, down:10 }; break;
+            case 1: // 大成功
+                p = { cRank:'少尉', tRank:'上校', years:20, living:50, rate:30, roi:8.0, buy:true, bY:5, hP:1200, down:20 }; 
+                break;
+            case 2: // 小成功
+                p = { cRank:'少尉', tRank:'中校', years:20, living:65, rate:15, roi:4.5, buy:false, bY:0, hP:0, down:0 }; 
+                break;
+            case 3: // 小失敗
+                p = { cRank:'少尉', tRank:'少校', years:20, living:85, rate:5, roi:1.5, buy:false, bY:0, hP:0, down:0 }; 
+                break;
+            case 4: // 大失敗
+                p = { cRank:'少尉', tRank:'少校', years:20, living:40, rate:0, roi:0, buy:true, bY:1, hP:1500, down:10 }; 
+                break;
         }
 
+        // 填入數值
         document.getElementById('currentRank').value = p.cRank;
         document.getElementById('targetRank').value = p.tRank;
         document.getElementById('years').value = p.years;
@@ -86,17 +104,26 @@ const APP = {
         document.getElementById('investRate').value = p.rate;
         document.getElementById('roi').value = p.roi;
         document.getElementById('buyHouse').checked = p.buy;
+        
         if (p.buy) {
             document.getElementById('buyYear').value = p.bY;
             document.getElementById('housePrice').value = p.hP;
             document.getElementById('downPayment').value = p.down;
         }
+        
+        // 更新顯示
         APP.updateInput('livingPct');
         APP.updateInput('investRate');
+        // 若有薪資滑桿，預設重置為 100%
+        if(document.getElementById('salaryLevel')) {
+            document.getElementById('salaryLevel').value = 100;
+            document.getElementById('salaryLevelLabel').innerText = '100%';
+        }
     },
 
+    // --- 核心運算引擎 (Engine v29.0) ---
     update: () => {
-        // 讀取 UI
+        // 1. 讀取介面參數
         const d = {
             cRank: document.getElementById('currentRank').value,
             tRank: document.getElementById('targetRank').value,
@@ -111,8 +138,8 @@ const APP = {
             down: APP.N(document.getElementById('downPayment').value),
             loanY: APP.N(document.getElementById('loanYears').value),
             realPay: APP.N(document.getElementById('realPay').value),
-            // 新增：薪資修正係數
-            salaryLevel: (APP.N(document.getElementById('salaryLevel').value) || 100) / 100
+            // 讀取薪資修正係數 (預設 1.0)
+            salaryLevel: (APP.N(document.getElementById('salaryLevel')?.value) || 100) / 100
         };
 
         let inv = 0, cash = 0, hasHouse = false, houseVal = 0, loan = 0;
@@ -124,62 +151,69 @@ const APP = {
 
         const res = { years:[], net:[], inv:[], cash:[], house:[], logs:[] };
 
-        // 參數校正：實領扣除率 (勞健保、退撫、雜費)
-        // 預設打 88 折 (扣 12%)
+        // [v29.0] 實領扣除率 (Take-home Pay Ratio)
+        // 假設扣除退撫、健保、軍保、主副食費約 12%
         const TAKE_HOME_RATIO = 0.88; 
 
         for(let y=1; y<=d.years; y++) {
+            // 晉升邏輯: 每4年升一階，直到目標階級
             if (y > 1 && y % 4 === 0 && cIdx < tIdx) { cIdx++; yrInR = 0; } else yrInR++;
             let rName = APP.ranks[cIdx];
             const rInfo = APP.rankData[rName];
 
-            // --- 薪資計算核心修正 ---
-            
-            // 1. 基礎月薪 (Gross Monthly)
-            // 包含：本俸 + 專業加給 + 志願役加給(10000)
-            // 應用「薪資修正係數 (salaryLevel)」
+            // --- A. 薪資計算 (修正版) ---
             let grossMonthly = 0;
             if (d.realPay > 0) {
-                grossMonthly = d.realPay * Math.pow(1.01, y-1); // 若手動輸入，假設年增1%
+                // 手動輸入模式：假設每年微幅成長 1%
+                grossMonthly = d.realPay * Math.pow(1.01, y-1);
             } else {
-                // 依據年資微調 (每年 1%)
+                // 自動計算模式：(本俸*年資係數 + 專業加給 + 1萬津貼) * 薪資修正係數
                 const seniority = Math.pow(1.01, yrInR);
                 grossMonthly = (rInfo.b * seniority + rInfo.p + 10000) * d.salaryLevel;
             }
 
-            // 2. 實領月薪 (Net Monthly) - 扣除退撫保險
+            // 實領月薪 (Net Monthly) = 表定 * 0.88
             const netMonthly = grossMonthly * TAKE_HOME_RATIO;
 
-            // 3. 年終獎金 (Net Bonus)
-            // 校正：僅以 (本俸+專業) 為基數，且設為 2.0 個月 (較保守)
-            // 並同樣打折模擬扣稅
+            // 年終獎金 (Net Bonus)
+            // 修正：基數僅含 (本俸+專業)，且係數降為 2.0 (1.5年終+0.5考績)
+            // 獎金扣稅較少，假設實拿 95%
             const bonusBase = (rInfo.b + rInfo.p) * d.salaryLevel;
-            const netBonus = (bonusBase * 2.0) * 0.95; // 獎金扣稅較少，設 5%
+            const netBonus = (bonusBase * 2.0) * 0.95;
 
-            // 4. 年實領總額 (Total Annual Net Cash)
+            // 年實領總額 (Cash In)
             let aInc = (netMonthly * 12) + netBonus;
 
-            // --- 退伍金修正 ---
+            // --- B. 退伍金挹注 (Year 20) ---
             if (y === d.years && d.years >= 20) {
-                // 退伍金以「本俸」為基數 * 2 * 年資
-                // 這是最接近真實的一次領算法
+                // 退伍金基數 = 本俸 * 2
+                // 總額 = 基數 * 年資 (簡易現值)
                 const pensionBase = (rInfo.b * d.salaryLevel) * 2;
                 const pensionTotal = pensionBase * d.years; 
                 aInc += pensionTotal;
                 rName += " (退伍)";
             }
 
-            // --- 支出與投資 ---
+            // --- C. 支出計算 (Lifestyle Creep) ---
+            // 階級越高，生活通膨係數 (Creep) 越高
             const creep = 1 + (cIdx * 0.03);
+            // 剛性支出預設 5000 也隨通膨成長
             const aExp = (netMonthly * (d.livingPct/100) * creep + 5000) * 12 * Math.pow(1 + d.inf/100, y-1);
 
-            // 房產
+            // --- D. 房產與變現 ---
             let mort = 0, downPay = 0;
             if (d.buyHouse && y === d.buyY && !hasHouse) {
                 hasHouse = true; houseVal = d.hPrice * 10000;
                 downPay = houseVal * (d.down/100);
                 loan = houseVal - downPay;
-                if (cash >= downPay) cash -= downPay; else { inv -= (downPay - cash); cash = 0; }
+                
+                // 資產變現: 現金不夠賣股票 (Liquidation)
+                if (cash >= downPay) cash -= downPay; 
+                else { 
+                    const diff = downPay - cash;
+                    cash = 0; 
+                    inv -= diff; 
+                }
             }
             if (hasHouse && loan > 0) {
                 const r = 0.022/12, n = d.loanY * 12;
@@ -187,19 +221,26 @@ const APP = {
                 mort = pmt * 12;
                 loan -= (mort - loan * 0.022);
                 
-                const ratio = (pmt / netMonthly) * 100; // 使用實領月薪計算負擔率
+                // 房貸負擔率 = 月房貸 / 實領月薪
+                const ratio = (pmt / netMonthly) * 100;
                 if (ratio > maxMortgageRatio) maxMortgageRatio = ratio;
             }
 
-            // 投資 (基於實領月薪)
+            // --- E. 投資投入 ---
+            // 投資金額 = 實領月薪 * 提撥率
             const aInv = (netMonthly * (d.rate / 100) * 12);
             
-            // 審計
-            if ((aExp + aInv + mort + downPay) > aInc && (cash + inv + aInc - aExp - aInv - mort - downPay) < 0) hasError = true;
+            // --- F. 赤字審計 (Budget Audit) ---
+            // 總支出 > 總收入 且 資產耗盡 = 赤字
+            if ((aExp + aInv + mort + downPay) > aInc) {
+                if ((cash + inv + aInc - aExp - aInv - mort - downPay) < 0) hasError = true;
+            }
 
+            // --- G. 結餘滾存 ---
             const surplus = aInc - aExp - aInv - mort;
             inv = inv * (1 + d.roi/100) + aInv;
             cash += surplus;
+            
             const hNet = hasHouse ? Math.max(0, houseVal - loan) : 0;
             const net = inv + cash + hNet;
 
@@ -207,24 +248,27 @@ const APP = {
             res.logs.push({ y, rank: rName, inc: aInc, exp: aExp, inv: aInv, mort: mort+downPay, net });
         }
 
-        // --- 輸出 ---
+        // --- 4. 更新 UI 顯示 ---
         const net20 = res.net[res.net.length-1];
         document.getElementById('kpi-net20').innerText = APP.F(net20);
         
+        // 80歲推估 (實質購買力)
         const realRoi = (1 + d.roi/100) / (1 + d.inf/100) - 1;
-        const net80 = net20 * Math.pow(1 + realRoi, 38);
+        const net80 = net20 * Math.pow(1 + realRoi, 38); // 假設從 42歲活到 80歲
         document.getElementById('kpi-net80').innerText = APP.F(net80);
 
+        // 房貸壓力顯示
         const kpiMort = document.getElementById('kpi-mortgage');
         kpiMort.innerText = maxMortgageRatio.toFixed(1) + '%';
         kpiMort.className = maxMortgageRatio > 50 ? "kpi-val text-rose-500 animate-pulse" : "kpi-val text-emerald-400";
 
+        // 警示框
         const alertBox = document.getElementById('budget-alert');
         if (hasError || maxMortgageRatio > 60) {
             alertBox.style.display = 'block';
             alertBox.style.backgroundColor = 'rgba(244, 63, 94, 0.2)';
             alertBox.style.color = '#f43f5e';
-            alertBox.innerText = "⚠️ 風險警告：財務赤字或房貸過重 (請嘗試下修支出)";
+            alertBox.innerText = "⚠️ 風險警告：財務赤字或房貸負擔過重 (請下修支出/投資或調整薪資係數)";
         } else {
             alertBox.style.display = 'block';
             alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
@@ -234,6 +278,7 @@ const APP = {
 
         APP.drawCharts(res);
         APP.renderTable(res);
+        
         document.getElementById('housing-area').className = d.buyHouse ? 'grid grid-cols-2 gap-2' : 'hidden';
     },
 
@@ -245,8 +290,17 @@ const APP = {
             type: 'line',
             data: {
                 labels: labels,
-                datasets: [{ label: '淨資產 (實領制)', data: r.net, borderColor: '#38bdf8', borderWidth:3, tension:0.4, fill:true, backgroundColor:'rgba(56, 189, 248, 0.1)' }]
-            }, options: { responsive:true, maintainAspectRatio:false }
+                datasets: [{ 
+                    label: '淨資產 (實領制)', 
+                    data: r.net, 
+                    borderColor: '#38bdf8', 
+                    borderWidth: 3, 
+                    tension: 0.4, 
+                    fill: true, 
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)' 
+                }]
+            }, 
+            options: { responsive:true, maintainAspectRatio:false }
         });
 
         if(APP.charts.wealth) APP.charts.wealth.destroy();
@@ -259,7 +313,8 @@ const APP = {
                     { label: '現金', data: r.cash, backgroundColor: '#3b82f6' },
                     { label: '房產淨值', data: r.house, backgroundColor: '#f97316' }
                 ]
-            }, options: { responsive:true, maintainAspectRatio:false, scales: { x:{stacked:true}, y:{stacked:true} } }
+            }, 
+            options: { responsive:true, maintainAspectRatio:false, scales: { x:{stacked:true}, y:{stacked:true} } }
         });
     },
 
@@ -280,3 +335,6 @@ const APP = {
 };
 
 window.onload = APP.init;
+</script>
+</body>
+</html>
