@@ -190,7 +190,6 @@ const APP = {
                 <input type="range" id="salaryLevel" min="70" max="130" value="100" class="w-full" oninput="APP.updateSalaryInput()">
                 <p class="text-[10px] text-slate-500 mt-1">若覺得薪資太高，請下修至 80%~90%</p>
             `;
-            // 插入到 input-group 的第二個子元素位置
             target.insertBefore(div, target.children[1]);
         }
     },
@@ -353,7 +352,7 @@ const APP = {
             alertBox.style.display = 'block';
             alertBox.style.backgroundColor = 'rgba(244, 63, 94, 0.2)';
             alertBox.style.color = '#f43f5e';
-            alertBox.innerText = "⚠️ 風險警告：財務赤字或房貸過重 (請下修支出/投資或調整薪資係數)";
+            alertBox.innerText = "⚠️ 風險警告：財務赤字或房貸負擔過重 (請下修支出/投資或調整薪資係數)";
         } else {
             alertBox.style.display = 'block';
             alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
